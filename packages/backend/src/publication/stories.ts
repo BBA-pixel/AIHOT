@@ -323,7 +323,7 @@ export async function v1Story(storyId: number) {
       publicId: s.public_id,
       title: s.title,
       status: storyStatusFor(latestAt, now.getTime()) === "settled" ? ("settled" as const) : ("active" as const),
-      sourceCount: new Set(reports.map((r) => r.source_id)).size,
+      sourceCount: independentSourceCount(reports).sourceCount,
       reportCount: reports.length,
       firstReportAt: firstReportAt.toISOString(),
       latestAt: latestAt.toISOString(),
