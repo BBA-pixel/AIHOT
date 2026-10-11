@@ -200,10 +200,10 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
   return out;
 }
 
-/** What stops when a model service refuses us: the steps that default to its models, else a pointer to the admin. */
-function modelStops(service: string): string {
-  const steps = stepsOnService(service);
-  return steps.length ? `${steps.join("、")}停了` : "用到这家模型的步骤停了（看后台“模型与评测”），新内容可能进不了精选";
+/** Current routing describes possible impact; recent failed calls do not prove every step has stopped. */
+async function modelStops(service: string): Promise<string> {
+  const steps = await stepsOnService(service);
+  return steps.length ? `${steps.join("、")}可能受影响` : "当前没有处理步骤使用这家模型服务";
 }
 /** `stops` is for the services that are not models; a model service's follows from the steps that use it. */
 const PROVIDERS: Record<string, { name: string; where: string; stops?: string }> = {
@@ -217,7 +217,7 @@ const PROVIDERS: Record<string, { name: string; where: string; stops?: string }>
   dajiala: { name: "极致了（Dajiala）", stops: "公众号新文章收不到", where: "极致了后台" },
 };
 export const providerName = (service: string) => PROVIDERS[service]?.name ?? service;
-export const providerStops = (service: string) => {
+export const providerStops = async (service: string): Promise<string> => {
   const p = PROVIDERS[service];
   return p ? (p.stops ?? modelStops(service)) : "相关功能停了";
 };
@@ -237,7 +237,7 @@ async function providerFindings(): Promise<Finding[]> {
       level: "today",
       owner: true,
       title: `${providerName(p.service)} 拒绝服务，可能欠费或账号失效`,
-      impact: providerStops(p.service),
+      impact: await providerStops(p.service),
       heals: "不会",
       action: `去${providerConsole(p.service)}看余额和账号状态，充值或恢复后系统会自动继续；两样都正常的话，发起一次维护查原因`,
       detail: `最近 1 小时被拒 ${p.n} 次：${p.last}`,
@@ -252,7 +252,7 @@ async function providerFindings(): Promise<Finding[]> {
       key: `budget.day.${c.service}`,
       level: "later",
       title: `${providerName(c.service)} 过去 24 小时的调用额度用完了`,
-      impact: `${providerStops(c.service)}，直到额度随时间腾出来`,
+      impact: `${await providerStops(c.service)}，直到额度随时间腾出来`,
       heals: "会，额度按 24 小时滚动恢复",
       action: "这次不用处理；如果经常出现，再决定要不要调高额度",
       detail: `24 小时内 ${c.used} 次，上限 ${c.per_day}（budgets 表）`,

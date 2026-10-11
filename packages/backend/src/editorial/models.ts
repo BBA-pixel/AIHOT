@@ -45,11 +45,12 @@ export function capabilities(): Record<string, Capability> {
   return all;
 }
 
-/** Names of the steps whose default model belongs to a service: what stops when that service refuses us. */
-export function stepsOnService(service: string): string[] {
-  return Object.values(capabilities())
-    .filter((c) => MODELS[c.default]?.service === service && !c.idle?.())
-    .map((c) => c.label.split("（")[0]!);
+/** Names of the active steps currently routed to a service, using the same choices as model calls. */
+export async function stepsOnService(service: string): Promise<string[]> {
+  const current = await modelSources();
+  return Object.entries(capabilities())
+    .filter(([key, c]) => MODELS[current[key]!.model]?.service === service && !c.idle?.())
+    .map(([, c]) => c.label.split("（")[0]!);
 }
 
 let cache: { at: number; overrides: Record<string, string> } | null = null;
