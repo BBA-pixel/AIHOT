@@ -40,7 +40,7 @@ export default function Home() {
       <ActiveFilters base="/" category={filters.category} channel={filters.channel} tag={filters.tag} />
       <div className="hidden lg:block">
         <div className="flex items-center gap-4">
-          <h1 className="text-[24px] font-semibold leading-[1.3] text-ink">{title}</h1>
+          <h1 className="font-display text-[28px] font-semibold leading-[1.2] tracking-[0.02em] text-ink">{title}</h1>
           <ScopeTabs base="/" layoutId="feed-scope-desk" />
         </div>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">

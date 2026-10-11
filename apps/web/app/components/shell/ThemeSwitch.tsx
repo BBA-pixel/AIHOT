@@ -32,10 +32,10 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
   };
 
   return (
-    <div role="radiogroup" aria-label="外观" className={`relative grid h-[34px] grid-cols-3 rounded-full border border-line bg-bg-sunk p-[3px] ${className}`}>
+    <div role="radiogroup" aria-label="外观" className={`relative grid h-[34px] grid-cols-3 border border-line bg-bg-sunk p-[3px] ${className}`}>
       <span
         aria-hidden="true"
-        className="absolute inset-y-[3px] left-[3px] w-[calc((100%-6px)/3)] rounded-full border border-line bg-surface shadow-[var(--shadow-card)] transition-transform duration-200 ease-[var(--ease-out-quart)]"
+        className="absolute inset-y-[3px] left-[3px] w-[calc((100%-6px)/3)] border border-line bg-surface shadow-[var(--shadow-card)] transition-transform duration-200 ease-[var(--ease-out-quart)]"
         style={{ transform: `translateX(${index * 100}%)` }}
       />
       {OPTIONS.map((o) => (
@@ -46,7 +46,7 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
           aria-checked={current === o.key}
           title={o.label}
           onClick={() => choose(o.key)}
-          className={`relative z-10 flex items-center justify-center rounded-full transition-colors duration-150 ${current === o.key ? "text-ink" : "text-ink-4 hover:text-ink-2"}`}
+          className={`relative z-10 flex items-center justify-center transition-colors duration-150 ${current === o.key ? "text-ink" : "text-ink-4 hover:text-ink-2"}`}
         >
           {o.icon}
           <span className="sr-only">{o.label}</span>

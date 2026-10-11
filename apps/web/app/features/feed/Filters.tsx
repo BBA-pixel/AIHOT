@@ -5,7 +5,7 @@ import { Form, Link, useNavigation, useSearchParams } from "react-router";
 import { CATEGORY_KEYS, CATEGORY_LABELS, CHANNEL_LABELS, type CategoryKey, type ChannelKey } from "@aihot/contracts/taxonomy";
 import { SITE } from "@aihot/site";
 import { IconCheck, IconClose, IconFilter, IconSearch } from "../../components/icons";
-import { PillTabs } from "../../components/ui/Tabs";
+import { PillTabs, UnderlineTabs } from "../../components/ui/Tabs";
 import { Sheet } from "../../components/ui/Sheet";
 import { Wordmark } from "@aihot/site/brand/Logo.tsx";
 import { BarButton, PhoneBar } from "../../components/shell/PhoneBar";
@@ -48,18 +48,16 @@ export function CategoryTabs({ base, category, channel = "all", layoutId, classN
 }
 
 /** The 资讯 column's 精选 | 全部 switch (a filter in use carries over): in the phone bar, and beside the desktop title. */
-export function ScopeTabs({ base, layoutId }: { base: "/" | "/all"; layoutId: string }) {
+export function ScopeTabs({ base, layoutId: _layoutId }: { base: "/" | "/all"; layoutId: string }) {
   const [params] = useSearchParams();
   const scope = (to: string) => hrefWith(to, params, { q: null, tab: null, search: null });
   return (
-    <PillTabs
-      size="sm"
-      layoutId={layoutId}
+    <UnderlineTabs
       label="看精选或全部"
       active={base === "/" ? "featured" : "all"}
       items={[
-        { key: "featured", label: "精选", to: scope("/"), resetScroll: true, prefetch: 'intent' },
-        { key: "all", label: "全部", to: scope("/all"), resetScroll: true, prefetch: 'intent' },
+        { key: "featured", label: "精选", to: scope("/"), resetScroll: true, prefetch: "intent" },
+        { key: "all", label: "全部", to: scope("/all"), resetScroll: true, prefetch: "intent" },
       ]}
     />
   );
