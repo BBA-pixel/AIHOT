@@ -107,6 +107,66 @@ function jumpTo(e: React.MouseEvent, id: string) {
   scrollToAnchor(id);
 }
 
+function ArticleOutline({ outline }: { outline: SiteItemDetail["outline"] }) {
+  const ref = useRef<HTMLElement>(null);
+  const [scrollable, setScrollable] = useState(false);
+  useEffect(() => {
+    const nav = ref.current!;
+    const list = nav.firstElementChild!;
+    const rail = nav.closest("aside")!.firstElementChild!;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (!nav.getClientRects().length) return;
+      // Measure within the sticky rail, so scrolling the article cannot change the list's height.
+      const inset = parseFloat(getComputedStyle(rail).top);
+      const offset = nav.getBoundingClientRect().top - rail.getBoundingClientRect().top;
+      const available = window.innerHeight - inset * 2 - offset;
+      // A scrollbar can wrap the first entry. Use one line as the minimum to avoid toggling it.
+      const entryStyle = getComputedStyle(list.firstElementChild!.firstElementChild!);
+      const minimumHeight = parseFloat(entryStyle.lineHeight) + parseFloat(entryStyle.paddingTop) + parseFloat(entryStyle.paddingBottom);
+      nav.style.maxHeight = available >= minimumHeight ? `${available}px` : "";
+      setScrollable(nav.scrollHeight > nav.clientHeight);
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(rail);
+    resize.observe(list);
+    window.addEventListener("resize", schedule);
+    update();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      window.removeEventListener("resize", schedule);
+    };
+  }, []);
+  const containKeys = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (!scrollable || e.altKey || e.ctrlKey || e.metaKey) return;
+    const nav = e.currentTarget;
+    const up = ["ArrowUp", "PageUp", "Home"].includes(e.key) || (e.key === " " && e.shiftKey);
+    const down = ["ArrowDown", "PageDown", "End"].includes(e.key) || (e.key === " " && !e.shiftKey);
+    // WebKit can chain keyboard scrolling even with overscroll-behavior: contain.
+    if ((up && nav.scrollTop <= 0) || (down && nav.scrollTop + nav.clientHeight >= nav.scrollHeight - 1)) e.preventDefault();
+  };
+  return (
+    <RailSection title="本文目录">
+      <nav ref={ref} aria-label="本文目录" tabIndex={scrollable ? 0 : undefined} onKeyDown={containKeys} className={`article-outline scrollbar-thin overflow-y-auto${scrollable ? " overscroll-y-contain" : ""}`}>
+        <ol className="space-y-0.5 border-l border-line">
+          {outline.map((o) => (
+            <li key={o.id}>
+              <a href={`#${o.id}`} onClick={(e) => jumpTo(e, o.id)} className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink focus-visible:outline-offset-[-2px] ${o.level > 2 ? "pl-5" : "pl-3"}`}>
+                {o.text}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+    </RailSection>
+  );
+}
+
 /** WeChat's in-app browser cannot save downloads: there the Markdown is copied instead. */
 function inWeChat(): boolean {
   return typeof navigator !== "undefined" && /MicroMessenger/i.test(navigator.userAgent);
@@ -368,21 +428,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
       </div>
     </RailSection>
   );
-  const outline = showOutline && (
-    <RailSection title="本文目录">
-      <nav aria-label="本文目录">
-        <ol className="-ml-px space-y-0.5 border-l border-line">
-          {item.outline.map((o) => (
-            <li key={o.id}>
-              <a href={`#${o.id}`} onClick={(e) => jumpTo(e, o.id)} className={`-ml-px block border-l border-transparent py-1 text-[12.5px] leading-snug text-ink-3 transition-colors hover:border-accent hover:text-ink ${o.level > 2 ? "pl-5" : "pl-3"}`}>
-                {o.text}
-              </a>
-            </li>
-          ))}
-        </ol>
-      </nav>
-    </RailSection>
-  );
+  const outline = showOutline && <ArticleOutline outline={item.outline} />;
   const notes = (
     <>
       {item.reason && !summaryOnly ? (
