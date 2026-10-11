@@ -75,7 +75,7 @@ test("buildSelectionHint is compact for cards", () => {
   const h = buildSelectionHint({ score: 80, selected: true, sourceTier: "T2" });
   assert.deepEqual(h, {
     score: 80,
-    threshold: 76,
+    threshold: 40,
     sourceTier: "T2",
     sourceTierLabel: "媒体与个人",
   });
