@@ -6,9 +6,9 @@
 @source "../../../modules/*/{web.tsx,web/**}";
 
 /* ---------------------------------------------------------------------------
-   Design tokens: warm off-white paper, ink text, one teal accent (cyan in
-   dark), hairline borders, no gradients.
-   Components use the semantic names below; values change per theme only.
+   Design tokens: GAMEHOT ink-copper dark / porcelain light magazine.
+   Hairline borders, near-square radii, copper/ink-gold accent — no neon,
+   purple gradients, or glassmorphism. Spec: docs/visual-tokens.md
    --------------------------------------------------------------------------- */
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
@@ -16,14 +16,17 @@
 @custom-variant touch (@media (hover: none));
 
 @theme {
-  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  --font-sans: "Inter", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Playfair Display", "Noto Serif SC", "Source Serif 4", "Songti SC", "STSong", ui-serif, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-  /* Semantic colours. */
+  /* Semantic colours — components use these names; values come from :root / [data-theme]. */
   --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
   --color-bg-sunk: var(--bg-sunk);
   --color-bg-muted: var(--bg-muted);
   --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
   --color-surface-2: var(--surface-2);
   --color-raised: var(--raised);
   --color-sidebar: var(--sidebar);
@@ -33,13 +36,19 @@
   --color-ink-2: var(--ink-2);
   --color-ink-3: var(--ink-3);
   --color-ink-4: var(--ink-4);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-secondary);
+  --color-muted: var(--muted);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-line-soft: var(--line-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
   --color-accent-softer: var(--accent-softer);
+  --color-accent-muted: var(--accent-muted);
   --color-accent-contrast: var(--accent-contrast);
   --color-note: var(--note);
   --color-hot: var(--hot);
@@ -54,20 +63,20 @@
   --color-rank-2: var(--rank-2);
   --color-rank-3: var(--rank-3);
   --color-rank-rest: var(--rank-rest);
+  --color-focus-ring: var(--focus-ring);
+  --color-overlay: var(--overlay);
 
-  /* Radius scale: mark 5 (inline code, kbd, tiny tags and swatches), control 8 (inputs, small
-     blocks), tile 10 (list rows, hover areas), card 12, panel 14 (wells, pictures), sheet 16 (dialogs,
-     sheets, hero shells); pills are rounded-full. Arbitrary radii are not used. */
-  --radius-mark: 5px;
-  --radius-control: 8px;
-  --radius-tile: 10px;
-  --radius-card: 12px;
-  --radius-panel: 14px;
-  --radius-sheet: 16px;
+  /* Magazine radii: default square; tags <= 2px; controls <= 4px when needed. */
+  --radius-mark: 2px;
+  --radius-control: 4px;
+  --radius-tile: 0px;
+  --radius-card: 0px;
+  --radius-panel: 0px;
+  --radius-sheet: 4px;
 
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
-  /* Breakpoints: phones ≤ 640, the mobile shell up to 960, desktop above. */
+  /* Breakpoints: phones <= 640, the mobile shell up to 960, desktop above. */
   --breakpoint-sm: 641px;
   --breakpoint-md: 768px;
   --breakpoint-lg: 961px;
@@ -88,54 +97,66 @@
   --gutter-l: max(16px, env(safe-area-inset-left));
   --gutter-r: max(16px, env(safe-area-inset-right));
   color-scheme: light;
-  --bg: #faf9f6;
-  --bg-sunk: #f3f3ef;
-  --bg-muted: #e9ede9;
-  --surface: #ffffff;
-  --surface-2: #fdfdfb;
-  --raised: #ffffff;
-  --sidebar: #fdfdfb;
-  --daybar: #f0f2ee;
-  --field: #eef1ed;
-  --ink: #202a30;
-  --ink-2: #303c42;
-  --ink-3: #59656b;
-  --ink-4: #657176;
-  --line: #dfe4e1;
-  --line-strong: #d1d9d5;
-  --line-soft: #e9ede9;
-  --accent: #176b75;
-  --accent-ink: #145f68;
-  --accent-soft: rgba(23, 107, 117, 0.08);
-  --accent-softer: rgba(23, 107, 117, 0.05);
-  --accent-contrast: #ffffff;
-  --note: #526f72;
-  --hot: #b3402a;
-  --hot-soft: rgba(179, 64, 42, 0.08);
-  --amber: #b8873a;
-  --amber-ink: #7c5a24;
-  --amber-soft: rgba(184, 135, 58, 0.1);
-  --ok: #2f7d5c;
+  /* Porcelain light magazine (ci-guang) */
+  --bg: #F6F1EA;
+  --bg-elevated: #FFFBF6;
+  --bg-sunk: #EFE8DE;
+  --bg-muted: #EFE8DE;
+  --surface: #FFFFFF;
+  --surface-hover: #EFE8DE;
+  --surface-2: #FFFBF6;
+  --raised: #FFFBF6;
+  --sidebar: #FFFBF6;
+  --daybar: #EFE8DE;
+  --field: #EFE8DE;
+  --ink: #1A1A1A;
+  --ink-2: #3D3A36;
+  --ink-3: #3D3A36;
+  --ink-4: #8A847A;
+  --text: #1A1A1A;
+  --text-secondary: #3D3A36;
+  --muted: #8A847A;
+  --line: #E4DDD2;
+  --line-strong: #D0C8BA;
+  --line-soft: #EDE6DB;
+  --border: #E4DDD2;
+  --border-strong: #D0C8BA;
+  --accent: #8B6914;
+  --accent-ink: #6F540F;
+  --accent-soft: rgba(139, 105, 20, 0.1);
+  --accent-softer: rgba(139, 105, 20, 0.06);
+  --accent-muted: #8B69141A;
+  --accent-contrast: #FFFBF6;
+  --note: #8A847A;
+  --hot: #B42318;
+  --hot-soft: rgba(180, 35, 24, 0.08);
+  --amber: #8B6914;
+  --amber-ink: #6F540F;
+  --amber-soft: rgba(139, 105, 20, 0.1);
+  --ok: #2F7D5C;
   --ok-soft: rgba(47, 125, 92, 0.1);
-  --ok-ink: #2a6e51;
-  --rank-1: #b3402a;
-  --rank-2: #a3642f;
-  --rank-3: #96702e;
-  --rank-rest: #6b7684;
-  --shadow-card: 0 1px 2px rgba(32, 42, 48, 0.025);
-  --shadow-card-hover: 0 3px 12px rgba(32, 42, 48, 0.055);
-  --shadow-soft: 0 4px 12px rgba(28, 39, 51, 0.06);
-  --shadow-thumb: 0 1px 2px rgba(28, 39, 51, 0.1), 0 1px 1px rgba(28, 39, 51, 0.04);
-  --shadow-pop: 0 12px 32px rgba(28, 39, 51, 0.12);
-  --prose-ink: #26323a;
-  --code-bg: #f6f7f4;
-  --code-keyword: #006d77;
-  --code-string: #2f6f44;
-  --code-number: #9a6700;
-  --code-title: #6f42c1;
-  --code-variable: #a13d10;
-  --code-meta: #b42348;
-  --selection: rgba(23, 107, 117, 0.16);
+  --ok-ink: #2A6E51;
+  --rank-1: #8B6914;
+  --rank-2: #8B6914;
+  --rank-3: #8B6914;
+  --rank-rest: #8A847A;
+  --focus-ring: #B4231840;
+  --overlay: #1A1A1A73;
+  --shadow-card: 0 1px 0 var(--border);
+  --shadow-card-hover: 0 4px 16px rgba(26, 26, 26, 0.06);
+  --shadow-soft: 0 4px 16px rgba(26, 26, 26, 0.06);
+  --shadow-thumb: 0 1px 0 var(--border);
+  --shadow-pop: 0 8px 24px rgba(26, 26, 26, 0.1);
+  --prose-ink: #3D3A36;
+  --code-bg: #EFE8DE;
+  --code-keyword: #8B6914;
+  --code-string: #2F6F44;
+  --code-number: #9A6700;
+  --code-title: #6F540F;
+  --code-variable: #A13D10;
+  --code-meta: #B42318;
+  --selection: rgba(139, 105, 20, 0.16);
+
 }
 
 @media (min-width: 961px) {
@@ -146,54 +167,65 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #13191c;
-  --bg-sunk: #182024;
-  --bg-muted: #202a2f;
-  --surface: #1a2226;
-  --surface-2: #1d272b;
-  --raised: #202a2f;
-  --sidebar: #161e21;
-  --daybar: #182024;
+  /* Ink-copper dark magazine */
+  --bg: #0A0A0B;
+  --bg-elevated: #121214;
+  --bg-sunk: #121214;
+  --bg-muted: #1C1C1F;
+  --surface: #161618;
+  --surface-hover: #1C1C1F;
+  --surface-2: #121214;
+  --raised: #1C1C1F;
+  --sidebar: #121214;
+  --daybar: #121214;
   --field: rgba(255, 255, 255, 0.06);
-  --ink: #e7eceb;
-  --ink-2: #d2dada;
-  --ink-3: #a5b0b3;
-  --ink-4: #89979d;
-  --line: rgba(255, 255, 255, 0.08);
-  --line-strong: rgba(255, 255, 255, 0.12);
-  --line-soft: rgba(255, 255, 255, 0.06);
-  --accent: #12ccd8;
-  --accent-ink: #2ce2e8;
-  --accent-soft: rgba(18, 204, 216, 0.12);
-  --accent-softer: rgba(18, 204, 216, 0.06);
-  --accent-contrast: #000000;
-  --note: #8fb8a8;
-  --hot: #d86a52;
-  --hot-soft: rgba(216, 106, 82, 0.12);
-  --amber: #d3b26a;
-  --amber-ink: #d3b26a;
-  --amber-soft: rgba(211, 178, 106, 0.12);
-  --ok: #5fc79a;
+  --ink: #F3EFE7;
+  --ink-2: #C8C2B6;
+  --ink-3: #C8C2B6;
+  --ink-4: #8A857C;
+  --text: #F3EFE7;
+  --text-secondary: #C8C2B6;
+  --muted: #8A857C;
+  --line: #2A2A2E;
+  --line-strong: #3A3A40;
+  --line-soft: #222226;
+  --border: #2A2A2E;
+  --border-strong: #3A3A40;
+  --accent: #C4A484;
+  --accent-ink: #D4B896;
+  --accent-soft: rgba(196, 164, 132, 0.12);
+  --accent-softer: rgba(196, 164, 132, 0.06);
+  --accent-muted: #C4A48433;
+  --accent-contrast: #0A0A0B;
+  --note: #8A857C;
+  --hot: #C4A484;
+  --hot-soft: rgba(196, 164, 132, 0.12);
+  --amber: #C4A484;
+  --amber-ink: #D4B896;
+  --amber-soft: rgba(196, 164, 132, 0.12);
+  --ok: #5FC79A;
   --ok-soft: rgba(95, 199, 154, 0.12);
-  --ok-ink: #7fd1ad;
-  --rank-1: #d86a52;
-  --rank-2: #d18a5e;
-  --rank-3: #d3b26a;
-  --rank-rest: #7b869a;
+  --ok-ink: #7FD1AD;
+  --rank-1: #C4A484;
+  --rank-2: #C4A484;
+  --rank-3: #C4A484;
+  --rank-rest: #8A857C;
+  --focus-ring: #C4A48466;
+  --overlay: #000000A6;
   --shadow-card: none;
   --shadow-card-hover: none;
-  --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.35);
-  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-pop: 0 16px 40px rgba(0, 0, 0, 0.45);
-  --prose-ink: #d7dfdf;
-  --code-bg: #10151c;
-  --code-keyword: #78dce8;
-  --code-string: #a9dc76;
-  --code-number: #ffd866;
-  --code-title: #ab9df2;
-  --code-variable: #fc9867;
-  --code-meta: #ff6188;
-  --selection: rgba(18, 204, 216, 0.22);
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-thumb: none;
+  --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --prose-ink: #C8C2B6;
+  --code-bg: #121214;
+  --code-keyword: #C4A484;
+  --code-string: #A9DC76;
+  --code-number: #FFD866;
+  --code-title: #D4B896;
+  --code-variable: #FC9867;
+  --code-meta: #C4A484;
+  --selection: rgba(196, 164, 132, 0.22);
 }
 
 @layer base {
@@ -211,13 +243,16 @@
     font-size: 14px;
     line-height: 1.5;
   }
+  .font-display {
+    font-family: var(--font-display);
+  }
   ::selection {
     background: var(--selection);
   }
   :focus-visible {
-    outline: 2px solid var(--accent);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
-    border-radius: 6px;
+    border-radius: 0;
   }
   a {
     color: inherit;
@@ -248,7 +283,7 @@
     gap: 0.25rem;
     height: 1.625rem;
     padding: 0 0.625rem;
-    border-radius: 9999px;
+    border-radius: var(--radius-mark);
     font-size: 12px;
     color: var(--ink-4);
     background: var(--bg-sunk);
@@ -324,11 +359,11 @@
   }
 }
 @utility card-hover {
-  transition: box-shadow 200ms var(--ease-out-quart), border-color 200ms, transform 200ms var(--ease-out-quart);
+  transition: box-shadow 150ms var(--ease-out-quart), border-color 150ms, background-color 150ms;
   &:hover {
     box-shadow: var(--shadow-card-hover);
     border-color: var(--line-strong);
-    transform: translateY(-1px);
+    background: var(--surface-hover);
   }
 }
 

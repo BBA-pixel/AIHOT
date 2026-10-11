@@ -35,7 +35,7 @@ function Thumb({ id }: { id: string }) {
       thumbs.set(id, placeOf(el));
     };
   }, [id, entrance]);
-  return <span ref={ref} className="absolute inset-0 rounded-full bg-surface shadow-[var(--shadow-thumb)] ring-1 ring-line dark:bg-raised" />;
+  return <span ref={ref} className="absolute inset-0 rounded-[2px] bg-surface shadow-[var(--shadow-thumb)] ring-1 ring-line dark:bg-raised" />;
 }
 
 export interface TabItem {
@@ -83,7 +83,7 @@ export function PillTabs({
         data-pill-track=""
         aria-label={label}
         role={links ? undefined : "tablist"}
-        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-full bg-bg-sunk p-0.5 lg:p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
+        className={`${fill ? "grid w-full" : "inline-flex w-max"} gap-0.5 rounded-[2px] bg-bg-sunk p-0.5 lg:p-[3px] ring-1 ring-inset ring-line-soft dark:bg-bg-muted/60`}
         style={fill ? { gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` } : undefined}
       >
         {items.map((t) => {
@@ -97,7 +97,7 @@ export function PillTabs({
               </span>
             </>
           );
-          const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-full font-medium outline-offset-1 transition-colors duration-150 active:scale-[0.98] ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
+          const cls = `relative inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap rounded-[2px] font-medium outline-offset-1 transition-colors duration-150 ${SIZES[size]} ${on ? "text-ink" : "text-ink-3 hover:text-ink"}`;
           const TabLink = t.prefetch === "intent" ? IntentLink : Link;
           return t.to ? (
             <TabLink key={t.key} to={t.to} replace={t.replace} preventScrollReset={!t.resetScroll} aria-current={on ? "page" : undefined} className={cls}>
@@ -113,3 +113,63 @@ export function PillTabs({
     </div>
   );
 }
+
+/**
+ * Text segment control with an accent underline on the active option.
+ * Used for 精选 | 全部 — not pills, no filled track, no sliding thumb.
+ */
+export function UnderlineTabs({
+  items, active, onSelect, label, className = "",
+}: {
+  items: TabItem[];
+  active: string;
+  onSelect?: (key: string) => void;
+  label?: string;
+  className?: string;
+}) {
+  const links = items.some((t) => t.to);
+  const Track = links ? "nav" : "div";
+  return (
+    <Track
+      aria-label={label}
+      role={links ? undefined : "tablist"}
+      className={`inline-flex items-end gap-4 ${className}`}
+    >
+      {items.map((t, i) => {
+        const on = t.key === active;
+        const cls = `relative pb-1.5 text-[14px] transition-colors duration-150 ${
+          on
+            ? "font-semibold text-ink after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-accent"
+            : "font-medium text-ink-4 hover:text-ink"
+        }`;
+        const inner = (
+          <span className="inline-flex items-center gap-1">
+            {i > 0 && <span className="sr-only">|</span>}
+            {t.label}
+            {t.count !== undefined && t.count !== null && (
+              <span className={`num text-[0.86em] font-normal ${on ? "text-ink-3" : "text-ink-4"}`}>{t.count}</span>
+            )}
+          </span>
+        );
+        const TabLink = t.prefetch === "intent" ? IntentLink : Link;
+        const sep = i > 0 ? <span aria-hidden="true" className="mb-[7px] h-3 w-px shrink-0 bg-line" /> : null;
+        const tab = t.to ? (
+          <TabLink to={t.to} replace={t.replace} preventScrollReset={!t.resetScroll} aria-current={on ? "page" : undefined} className={cls}>
+            {inner}
+          </TabLink>
+        ) : (
+          <button type="button" role="tab" aria-selected={on} onClick={() => onSelect?.(t.key)} className={cls}>
+            {inner}
+          </button>
+        );
+        return (
+          <span key={t.key} className="inline-flex items-end gap-4">
+            {sep}
+            {tab}
+          </span>
+        );
+      })}
+    </Track>
+  );
+}
+
