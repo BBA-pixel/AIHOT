@@ -221,8 +221,6 @@ export const ALERTS = {
   usualFlow: null as string | null,
   /** worker 停了的告警里，怎么看它的日志。 */
   workerLogs: "看 worker 的日志（docker compose logs worker）",
-  /** 某家模型服务拒绝服务或额度用完时，告警里说哪些步骤停了；没写的服务用通用说法。 */
-  modelStops: {} as Record<string, string>,
 };
 
 /** 后台新建信源时的默认设置。 */
