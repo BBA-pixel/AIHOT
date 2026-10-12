@@ -34,3 +34,8 @@ export function SelectedBadge() {
 export function SameEventBadge() {
   return <Badge title="同一新闻已有精选代表">同新闻</Badge>;
 }
+
+/** T1 official first-party source — not a content theme; shown on cards only. */
+export function OfficialSourceBadge() {
+  return <Badge tone="ok" title="信源为官方一手（T1）">官方来源</Badge>;
+}
