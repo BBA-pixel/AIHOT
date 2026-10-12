@@ -313,7 +313,7 @@ export default function AskPage() {
       {bubbles.length === 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {EXAMPLES.map((q) => (
-            <button key={q} type="button" className="rounded-control border border-line bg-bg-elevated px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-hover hover:text-ink" onClick={() => setInput(q)}>
+            <button key={q} type="button" className="rounded-full border border-line bg-bg-elevated px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-hover hover:text-ink" onClick={() => setInput(q)}>
               {q}
             </button>
           ))}
@@ -379,7 +379,7 @@ export default function AskPage() {
       <div className="sticky bottom-0 mt-4 border-t border-line bg-bg pt-3">
         <div className="flex gap-2">
           <textarea
-            className="min-h-[44px] flex-1 resize-none rounded-control border border-line bg-field px-3 py-2 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-accent focus:bg-surface"
+            className="min-h-[44px] flex-1 resize-none rounded-card border border-line bg-field px-3 py-2 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-accent focus:bg-surface"
             rows={2}
             maxLength={2000}
             placeholder="问站内资讯、热点或入选／上榜依据…"
@@ -395,9 +395,9 @@ export default function AskPage() {
           />
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control bg-accent px-4 text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink disabled:opacity-50" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink disabled:opacity-50" disabled={!busy} onClick={() => void stop()}>停止</button>
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink" onClick={newChat}>新对话</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-4 text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink disabled:opacity-50" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink disabled:opacity-50" disabled={!busy} onClick={() => void stop()}>停止</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink" onClick={newChat}>新对话</button>
         </div>
       </div>
     </div>

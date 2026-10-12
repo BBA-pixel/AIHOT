@@ -114,14 +114,15 @@ Tailwind 4：在 `@theme` 里挂 `var(--*)`，组件写 `bg-surface text-text bo
 
 | Token | px | 用途 |
 |-------|-----|------|
-| `radius-tile` | 4 | 媒体块、小面板 |
-| `radius-mark` / `radius-sm` | 3 | 小标签、HOT 印、chip |
-| `radius-card` / `radius-panel` | 6 | 卡片、榜单面、侧栏项 hover 底 |
-| `radius-control` / `radius-md` | 6 | 按钮、输入框、下拉、主题切换 |
-| `radius-sheet` | 10 | 底部抽屉顶角、居中浮层 |
-| `radius-full` | 9999 | **仅**头像、圆形图标钮 |
+| `radius-mark` | 5 | 行内 code、kbd、小标签色块 |
+| `radius-control` | 8 | 小块、骨架、部分控件 |
+| `radius-tile` | 10 | 列表行、媒体块、侧栏项 |
+| `radius-card` | 12 | 卡片、气泡、表单面 |
+| `radius-panel` | 14 | wells、大图面板 |
+| `radius-sheet` | 16 | 抽屉、对话框、hero 壳 |
+| `radius-full` | 9999 | 按钮、搜索框、徽章、主题切换、头像、圆形图标钮 |
 
-原则：**轻度倒角**，保留杂志切边感。不要大圆角卡片、不要胶囊 pill 导航／搜索框。
+原则：与上游 AIHOT 半径阶梯对齐；控件/搜索/徽章用 `rounded-full` pill，卡片用 `rounded-card`。保留墨铜／瓷光色与左侧边栏结构。
 
 ### 线宽
 
@@ -173,7 +174,7 @@ Tailwind 4：在 `@theme` 里挂 `var(--*)`，组件写 `bg-surface text-text bo
 
 ### 资讯卡片
 
-- 轻度圆角（`radius-card`）、`surface` 或透明底 + 底部分割线流（二选一，全站统一）。
+- 卡片圆角（`radius-card` = 12）、`surface` 或透明底 + 底部分割线流（二选一，全站统一）。
 - 图：16:10 或 3:2，desaturate 轻微；Light 可细白边；Dark 无描边或 `border` 1px。
 - 上：分类徽标（`caption` + `muted`）；中：`title-md` 衬线或半粗无衬线（建议卡片用无衬线半粗，Display 留给 Hero）；下：日期 `caption muted`。
 - Hot 角标：仅 Light 用 `--hot` 小方印；Dark 用 `--accent` 小字「精选/HOT」，忌大红渐变徽章。
@@ -200,14 +201,14 @@ Tailwind 4：在 `@theme` 里挂 `var(--*)`，组件写 `bg-surface text-text bo
 
 ### 链接 / CTA
 
-- 「阅读全文」「查看更多」：无衬线 + `accent` 箭头 `→`，无按钮填充（主 CTA 例外时用 `accent` 描边轻度圆角钮，字 `text`）。
+- 「阅读全文」「查看更多」：无衬线 + `accent` 箭头 `→`，无按钮填充（主 CTA 例外时用 `accent` pill 钮，字 `text`）。
 
 ---
 
 ## 6. 禁止项（Anti-AI-slop）
 
 1. **霓虹、紫粉渐变、RGB 灯效、玻璃拟态强模糊**
-2. **大圆角卡片、胶囊导航／搜索框、浮动大阴影**（轻度 4–6px 倒角可以）
+2. **霓虹玻璃拟态、浮动大阴影**；半径跟上游阶梯，勿自造 0–4px 直角杂志切边
 3. **Inter 唯一全站 + 无衬线大标题**（丢失杂志感）
 4. **Emoji 当图标、火焰/闪电热度动画**
 5. **多色标签彩虹**：Light 朱红只给热点印；Dark 点缀只留哑光铜

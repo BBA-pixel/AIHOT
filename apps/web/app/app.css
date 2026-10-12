@@ -7,7 +7,7 @@
 
 /* ---------------------------------------------------------------------------
    Design tokens: GAMEHOT ink-copper dark / porcelain light magazine.
-   Hairline borders, mildly softened radii, copper/ink-gold accent — no neon,
+   Hairline borders, upstream AIHOT radii, copper/ink-gold accent — no neon,
    purple gradients, or glassmorphism. Spec: docs/visual-tokens.md
    --------------------------------------------------------------------------- */
 
@@ -66,13 +66,14 @@
   --color-focus-ring: var(--focus-ring);
   --color-overlay: var(--overlay);
 
-  /* Magazine radii: mild soften (not pills). Tags ~3px; controls ~6px; cards/tiles ~6px. */
-  --radius-mark: 3px;
-  --radius-control: 6px;
-  --radius-tile: 4px;
-  --radius-card: 6px;
-  --radius-panel: 6px;
-  --radius-sheet: 10px;
+  /* Radius scale (aligned with upstream AIHOT): mark 5, control 8, tile 10, card 12,
+     panel 14, sheet 16; pills are rounded-full. */
+  --radius-mark: 5px;
+  --radius-control: 8px;
+  --radius-tile: 10px;
+  --radius-card: 12px;
+  --radius-panel: 14px;
+  --radius-sheet: 16px;
 
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 

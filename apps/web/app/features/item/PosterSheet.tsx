@@ -51,12 +51,12 @@ export default function PosterSheet({ id, title, open, onClose }: { id: string; 
           <a
             href={src}
             download={`${SITE.mcpPrefix}-${id}.png`}
-            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-control bg-accent text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink lg:h-10 sm:text-[13.5px]"
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-accent text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink lg:h-10 sm:text-[13.5px]"
           >
             <IconDownload size={15} /> 保存图片
           </a>
           {canShareFile && (
-            <button type="button" onClick={share} className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-control border border-line-strong bg-surface text-[14px] font-medium text-ink transition-colors hover:border-ink-4 lg:h-10 sm:text-[13.5px]">
+            <button type="button" onClick={share} className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface text-[14px] font-medium text-ink transition-colors hover:border-ink-4 lg:h-10 sm:text-[13.5px]">
               <IconShare size={15} /> 分享
             </button>
           )}
