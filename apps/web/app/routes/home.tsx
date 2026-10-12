@@ -7,9 +7,9 @@ import { filterParams, itemListLd, listPath, pageMeta, readFilters, siteLd } fro
 import type { Screen } from "../components/shell/screens";
 import { Timeline } from "../features/feed/Timeline";
 import { HotTopics } from "../features/feed/HotTopics";
-import { ActiveFilters, CategoryTabs, FeedBar, ScopeTabs, SearchField } from "../features/feed/Filters";
+import { ActiveFilters, CategoryTabs, FeedBar, SearchField } from "../features/feed/Filters";
 
-export const handle: Screen = { tab: "featured", name: "资讯" };
+export const handle: Screen = { tab: "featured", name: "精选" };
 export { pageHeaders as headers } from "../lib/api.server";
 export const { clientLoader, shouldRevalidate } = pageReuse<typeof loader>();
 
@@ -32,7 +32,7 @@ export function meta({ loaderData }: Route.MetaArgs) {
 
 export default function Home() {
   const { data, filters } = useLoaderData<typeof loader>();
-  const title = filters.tag ? `#${filters.tag}` : "资讯";
+  const title = filters.tag ? `#${filters.tag}` : "精选";
   return (
     <div className="pb-6">
       {/* Phones: the bar (精选 | 全部, filter, search), the filter in use, today's hot topics, the feed. */}
@@ -41,7 +41,6 @@ export default function Home() {
       <div className="hidden lg:block">
         <div className="flex items-center gap-4">
           <h1 className="font-display text-[28px] font-semibold leading-[1.2] tracking-[0.02em] text-ink">{title}</h1>
-          <ScopeTabs base="/" layoutId="feed-scope-desk" />
         </div>
         <div className="mb-5 mt-4 flex items-center justify-between gap-4">
           <CategoryTabs base="/" category={filters.category} channel={filters.channel} layoutId="home-cat-desk" className="min-w-0" />

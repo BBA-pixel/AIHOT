@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { webModules } from "../../site-modules";
 import {
-  IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconPlug, IconUser,
+  IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconList, IconPlug, IconUser,
 } from "../icons";
 
 export interface NavItem {
@@ -20,7 +20,8 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "内容",
     items: [
-      { to: "/", label: "资讯", icon: IconBolt, end: true },
+      { to: "/", label: "精选", icon: IconBolt, end: true },
+      { to: "/all", label: "全部动态", icon: IconList, end: true },
       { to: "/hot", label: "热点", icon: IconFlame },
       { to: "/daily", label: "AI 日报", icon: IconDoc },
       { to: "/topics", label: "主题", icon: IconGrid },
@@ -62,15 +63,15 @@ export function sidebar(): Array<{ title: string; items: NavItem[] }> {
   return sections;
 }
 
-/** A sidebar entry is lit on its pages; 日报 also covers weekly and monthly reports, 资讯 also covers 全部 (/all). */
+/** A sidebar entry is lit on its pages; 日报 also covers weekly and monthly reports. 精选 (/) and 全部动态 (/all) each light only themselves. */
 export function sidebarIsActive(item: NavItem, pathname: string): boolean {
-  if (item.end) return pathname === item.to || (item.to === "/" && /^\/all(\/|$)/.test(pathname));
+  if (item.end) return pathname === item.to;
   if (item.to === "/daily") return /^\/(daily|weekly|monthly)(\/|$)/.test(pathname);
   return pathname === item.to || pathname.startsWith(`${item.to}/`);
 }
 
 /**
- * The phone tab bar: 资讯 (精选, with 全部 beside it as a switch), 热点, 日报 and 主题 are tabs, and "我的"
+ * The phone tab bar: 精选 (with 全部 beside it as a ScopeTabs switch in FeedBar), 热点, 日报 and 主题 are tabs, and "我的"
  * at /more holds 收藏, 外观, the tools and the site's own pages. Which tab a page sits under is declared by the page
  * itself (components/shell/screens.ts).
  */
@@ -92,7 +93,7 @@ export interface Tab {
 }
 
 const ENGINE_TABS: Tab[] = [
-  { key: "featured", to: "/", label: "资讯", icon: IconBolt },
+  { key: "featured", to: "/", label: "精选", icon: IconBolt },
   { key: "hot", to: "/hot", label: "热点", icon: IconFlame },
   { key: "daily", to: "/daily", label: "日报", icon: IconDoc },
   { key: "topics", to: "/topics", label: "主题", icon: IconGrid },
