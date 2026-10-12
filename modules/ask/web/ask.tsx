@@ -64,7 +64,7 @@ function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evi
   const safe = useMemo(() => sanitizeAskMarkdown(text, allowed), [text, allowed]);
   // Streaming: keep as plain-ish text with soft breaks; still unlink unregistered.
   if (streaming) {
-    return <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-ink">{safe}</div>;
+    return <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-ink">{safe}<span className="ml-0.5 inline-block h-4 w-[2px] translate-y-[2px] animate-pulse bg-accent/70" aria-hidden /></div>;
   }
   // Simple paragraph split; links only when allowlisted.
   const parts = safe.split(/(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s]+)/g);
@@ -75,18 +75,119 @@ function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evi
         if (md) {
           const href = md[2]!;
           if (isAllowedAskHref(href, allowed)) {
-            return <a key={i} href={href} className="text-accent underline underline-offset-2" target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">{md[1]}</a>;
+            return <a key={i} href={href} className="text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors hover:decoration-accent" target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">{md[1]}</a>;
           }
           return <span key={i}>{md[1]}</span>;
         }
         if (/^https?:\/\//.test(p)) {
           if (isAllowedAskHref(p, allowed)) {
-            return <a key={i} href={p} className="text-accent underline underline-offset-2" target="_blank" rel="noopener noreferrer">{p}</a>;
+            return <a key={i} href={p} className="text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors hover:decoration-accent" target="_blank" rel="noopener noreferrer">{p}</a>;
           }
           return <span key={i}>{p}</span>;
         }
         return <span key={i}>{p}</span>;
       })}
+    </div>
+  );
+}
+
+function StepStatusMark({ status }: { status: Step["status"] }) {
+  if (status === "running") {
+    return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />;
+  }
+  if (status === "ok") {
+    return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" aria-hidden />;
+  }
+  return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-hot" aria-hidden />;
+}
+
+function ToolSteps({ steps }: { steps: Step[] }) {
+  const running = steps.some((s) => s.status === "running");
+  const ok = steps.filter((s) => s.status === "ok").length;
+  const label = running ? `查阅中 · ${ok}/${steps.length}` : `查阅步骤 · ${steps.length}`;
+  return (
+    <details className="group mb-3 rounded-control border border-line-soft bg-bg-sunk/60 open:bg-bg-sunk">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[12.5px] tracking-wide text-ink-3 marker:content-none [&::-webkit-details-marker]:hidden">
+        <span className="font-medium text-ink-2">{label}</span>
+        <span className="ml-auto text-[11px] text-ink-4 transition-transform group-open:rotate-180" aria-hidden>▾</span>
+      </summary>
+      <ol className="space-y-2 border-t border-line-soft px-3 py-2.5">
+        {steps.map((s) => (
+          <li key={s.stepId} className="flex gap-2.5 text-[12.5px] leading-5 text-ink-3">
+            <StepStatusMark status={s.status} />
+            <div className="min-w-0">
+              <div className="text-ink-2">
+                {s.labelZh}
+                <span className="ml-1.5 text-ink-4">
+                  {s.status === "running" ? "执行中" : s.status === "ok" ? "完成" : "失败"}
+                </span>
+              </div>
+              {s.summary ? <p className="mt-0.5 text-ink-4">{s.summary}</p> : null}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
+function Citations({ evidence }: { evidence: Evidence[] }) {
+  return (
+    <aside className="mt-4 border-t border-line-soft pt-3">
+      <div className="mb-2 flex items-baseline gap-2">
+        <span className="font-display text-[13px] font-semibold tracking-wide text-ink-2">来源</span>
+        <span className="text-[11px] tabular-nums text-ink-4">{evidence.length}</span>
+      </div>
+      <ol className="space-y-2">
+        {evidence.map((e) => (
+          <li key={e.id} className="flex gap-2.5 text-[13px] leading-5">
+            <span className="w-5 shrink-0 tabular-nums text-accent">{String(e.id).padStart(2, "0")}</span>
+            <div className="min-w-0 text-ink-2">
+              {e.unavailable ? (
+                <span className="text-ink-4">来源已不可用</span>
+              ) : (
+                <>
+                  <span className="text-ink">{e.title ?? "证据"}</span>
+                  {e.sourceName ? <span className="ml-1.5 text-[12px] text-ink-4">{e.sourceName}</span> : null}
+                  <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px]">
+                    {!e.unavailable && e.siteUrl && isAllowedAskHref(e.siteUrl, new Set([e.siteUrl])) && (
+                      <a className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent" href={e.siteUrl}>站内</a>
+                    )}
+                    {!e.unavailable && e.originalUrl && (
+                      <a className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent" href={e.originalUrl} target="_blank" rel="noopener noreferrer">原文</a>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </aside>
+  );
+}
+
+function EmptyState({ onPick }: { onPick: (q: string) => void }) {
+  return (
+    <div className="mb-6 rounded-card border border-line bg-surface/70 px-5 py-6 sm:px-7 sm:py-8">
+      <p className="font-display text-[17px] font-semibold tracking-wide text-ink">从一则站内线索问起</p>
+      <p className="mt-2 max-w-xl text-[13.5px] leading-6 text-ink-3">
+        回答只依据 GAMEHOT 公开资料：近期精选、搜索、热点与入选／上榜依据。不搜全网、不做攻略；打开本页不会触发模型调用。
+      </p>
+      <ul className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {EXAMPLES.map((q, i) => (
+          <li key={q}>
+            <button
+              type="button"
+              className="group flex w-full items-start gap-2.5 rounded-control border border-line-soft bg-bg-elevated/80 px-3.5 py-2.5 text-left transition-colors hover:border-line hover:bg-surface-hover sm:w-auto"
+              onClick={() => onPick(q)}
+            >
+              <span className="mt-0.5 tabular-nums text-[11px] text-accent/80">{String(i + 1).padStart(2, "0")}</span>
+              <span className="text-[13px] leading-5 text-ink-2 group-hover:text-ink">{q}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -132,7 +233,6 @@ export default function AskPage() {
       ? "相关来源已不可用，原回答不再展示"
       : (snap.finalAnswer ?? snap.draftAnswer ?? "");
     setBubbles((prev) => {
-      const withoutAssist = prev.filter((b) => b.role === "user" || (b.role === "assistant" && b.status === "completed"));
       // Keep last user; replace open assistant
       const users = prev.filter((b) => b.role === "user");
       const done = prev.filter((b) => b.role === "assistant" && (b.status === "completed" || b.status === "completed_degraded" || b.status === "failed" || b.status === "cancelled" || b.status === "limit_reached"));
@@ -301,85 +401,58 @@ export default function AskPage() {
   const busy = status === "running" || status === "streaming_answer";
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-[var(--page-max-reading)] flex-col pb-8">
+    <div className="mx-auto flex min-h-[70vh] max-w-[var(--page-max-reading)] flex-col pb-10">
       <PhoneBar title="AI 问答" />
-      <header className="px-1 pb-4 pt-1">
-        <h1 className="font-display text-[24px] font-semibold tracking-wide text-ink">AI 问答</h1>
-        <p className="mt-2 text-[14px] leading-6 text-ink-3">
-          只依据 GAMEHOT 站内公开资料回答：近期精选、搜索、热点、事件进展，以及入选／上榜依据。不搜全网、不做攻略，打开本页不触发模型调用。
+      <header className="border-b border-line-soft px-1 pb-5 pt-1">
+        <p className="text-[11px] uppercase tracking-[0.14em] text-ink-4">Ask · 站内只读</p>
+        <h1 className="mt-1.5 font-display text-[26px] font-semibold tracking-wide text-ink">AI 问答</h1>
+        <p className="mt-2 max-w-2xl text-[14px] leading-6 text-ink-3">
+          只依据 GAMEHOT 站内公开资料回答：近期精选、搜索、热点、事件进展，以及入选／上榜依据。不搜全网、不做攻略；打开本页不触发模型调用。
         </p>
       </header>
 
-      {bubbles.length === 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {EXAMPLES.map((q) => (
-            <button key={q} type="button" className="rounded-full border border-line bg-bg-elevated px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-hover hover:text-ink" onClick={() => setInput(q)}>
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="mt-5 flex flex-1 flex-col">
+        {bubbles.length === 0 && <EmptyState onPick={(q) => setInput(q)} />}
 
-      <div className="flex flex-1 flex-col gap-4">
-        {bubbles.map((b, i) => (
-          <div key={i} className={b.role === "user" ? "self-end max-w-[90%] rounded-card bg-accent-muted px-4 py-2.5 text-[15px] text-ink" : "self-start w-full max-w-[95%] rounded-card border border-line bg-surface px-4 py-3"}>
-            {b.role === "user" ? b.text : (
-              <>
-                {b.steps.length > 0 && (
-                  <details className="disclosure mb-2 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
-                    <summary className="cursor-pointer select-none text-ink-2">步骤（{b.steps.length}）</summary>
-                    <ul className="mt-1 space-y-1">
-                      {b.steps.map((s) => (
-                        <li key={s.stepId}>
-                          {s.labelZh} · {s.status === "running" ? "执行中" : s.status === "ok" ? "成功" : "失败"}
-                          {s.summary ? ` — ${s.summary}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
+        <div className="flex flex-col gap-5">
+          {bubbles.map((b, i) => (
+            b.role === "user" ? (
+              <div key={i} className="flex justify-end">
+                <div className="max-w-[min(90%,36rem)] rounded-card border border-accent/20 bg-accent-muted px-4 py-3 text-[15px] leading-6 text-ink shadow-[0_1px_0_var(--line-soft)]">
+                  {b.text}
+                </div>
+              </div>
+            ) : (
+              <div key={i} className="w-full max-w-[min(95%,42rem)] rounded-card border border-line bg-surface px-4 py-3.5 sm:px-5 sm:py-4">
+                {b.steps.length > 0 && <ToolSteps steps={b.steps} />}
                 {b.contentInvalidated ? (
-                  <p className="text-[15px] text-ink-3">相关来源已不可用，原回答不再展示</p>
+                  <p className="text-[15px] leading-7 text-ink-3">相关来源已不可用，原回答不再展示</p>
                 ) : b.text ? (
                   <SafeAnswer text={b.text} evidence={b.evidence} streaming={b.streaming} />
                 ) : (
-                  <p className="text-[14px] text-ink-4">{b.streaming ? "生成中…" : "…"}</p>
+                  <p className="flex items-center gap-2 text-[13.5px] text-ink-4">
+                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden />
+                    {b.streaming ? "正在整理站内线索…" : "…"}
+                  </p>
                 )}
-                {b.evidence.length > 0 && !b.contentInvalidated && (
-                  <div className="mt-3 border-t border-line-soft pt-2">
-                    <div className="text-[12px] font-semibold text-ink-3">来源</div>
-                    <ul className="mt-1 space-y-1 text-[13px]">
-                      {b.evidence.map((e) => (
-                        <li key={e.id} className="text-ink-2">
-                          [{e.id}] {e.unavailable ? "来源已不可用" : (e.title ?? "证据")}
-                          {!e.unavailable && e.siteUrl && isAllowedAskHref(e.siteUrl, new Set([e.siteUrl])) && (
-                            <> · <a className="text-accent underline" href={e.siteUrl}>站内</a></>
-                          )}
-                          {!e.unavailable && e.originalUrl && (
-                            <> · <a className="text-accent underline" href={e.originalUrl} target="_blank" rel="noopener noreferrer">原文</a></>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {b.status === "completed_degraded" && <p className="mt-2 text-[12px] text-amber-ink">引用校验未完全通过，已降级展示。</p>}
-                {b.status === "cancelled" && <p className="mt-2 text-[12px] text-ink-4">已停止</p>}
-                {b.status === "limit_reached" && <p className="mt-2 text-[12px] text-ink-4">已达调用上限</p>}
-                {b.status === "failed" && <p className="mt-2 text-[12px] text-hot">生成失败</p>}
-              </>
-            )}
-          </div>
-        ))}
-        <div ref={bottomRef} />
+                {b.evidence.length > 0 && !b.contentInvalidated && <Citations evidence={b.evidence} />}
+                {b.status === "completed_degraded" && <p className="mt-3 text-[12px] text-amber-ink">引用校验未完全通过，已降级展示。</p>}
+                {b.status === "cancelled" && <p className="mt-3 text-[12px] text-ink-4">已停止</p>}
+                {b.status === "limit_reached" && <p className="mt-3 text-[12px] text-ink-4">已达调用上限</p>}
+                {b.status === "failed" && <p className="mt-3 text-[12px] text-hot">生成失败</p>}
+              </div>
+            )
+          ))}
+          <div ref={bottomRef} />
+        </div>
       </div>
 
-      {error && <p className="mt-2 text-[13px] text-hot">{error}</p>}
+      {error && <p className="mt-3 text-[13px] text-hot">{error}</p>}
 
-      <div className="sticky bottom-0 mt-4 border-t border-line bg-bg pt-3">
-        <div className="flex gap-2">
+      <div className="sticky bottom-0 z-10 mt-6 -mx-1 border-t border-line bg-bg/95 px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
+        <div className="rounded-card border border-line bg-field shadow-[0_1px_0_var(--line-soft)] focus-within:border-accent/50 focus-within:bg-surface">
           <textarea
-            className="min-h-[44px] flex-1 resize-none rounded-card border border-line bg-field px-3 py-2 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-accent focus:bg-surface"
+            className="min-h-[52px] w-full resize-none bg-transparent px-3.5 py-3 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-4 disabled:opacity-60"
             rows={2}
             maxLength={2000}
             placeholder="问站内资讯、热点或入选／上榜依据…"
@@ -393,11 +466,12 @@ export default function AskPage() {
               }
             }}
           />
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full bg-accent px-4 text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink disabled:opacity-50" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink disabled:opacity-50" disabled={!busy} onClick={() => void stop()}>停止</button>
-          <button type="button" className="inline-flex h-10 items-center justify-center rounded-full border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink" onClick={newChat}>新对话</button>
+          <div className="flex flex-wrap items-center gap-2 border-t border-line-soft px-2.5 py-2">
+            <button type="button" className="inline-flex h-9 items-center justify-center rounded-full bg-accent px-4 text-[13.5px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink disabled:opacity-45" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
+            <button type="button" className="inline-flex h-9 items-center justify-center rounded-full border border-line-strong bg-surface px-3.5 text-[13.5px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink disabled:opacity-45" disabled={!busy} onClick={() => void stop()}>停止</button>
+            <button type="button" className="inline-flex h-9 items-center justify-center rounded-full border border-line-strong bg-surface px-3.5 text-[13.5px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink" onClick={newChat}>新对话</button>
+            <span className="ml-auto hidden text-[11px] text-ink-4 sm:inline">Enter 发送 · Shift+Enter 换行</span>
+          </div>
         </div>
       </div>
     </div>
