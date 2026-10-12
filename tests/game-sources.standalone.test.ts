@@ -36,14 +36,18 @@ const OFFICIAL = [
   // Steam seed-game news + developer/publisher first-party
   "rss-steam-isaac-rebirth", "rss-steam-sts2", "rss-steam-mewgenics", "rss-steam-bg3",
   "rss-megacrit-news", "web-larian-news",
+  // Valorant (non-Steam FPS exception): CN CMC + traditional-Chinese official news
+  "json-val-news", "web-playvalorant-news",
 ];
 /** Community hot lists: heat evidence only (Bilibili / Tieba). */
 const HOT = ["json-bilibili-hotword", "json-tieba-hottopic"];
-/** Disabled mobile/F2P announcement feeds still carry the old title rule in config (kept for re-enable). Steam seed feeds do not. */
+/** Disabled mobile/F2P announcement feeds still carry the old shared title rule (kept for re-enable). Steam seed feeds do not. */
 const SINGLE_GAME = ["json-pvp-news", "json-lol-news", "json-miyoushe-ys", "json-miyoushe-sr", "web-yjwujian", "web-gp-qq"];
+/** Enabled Valorant CN announcements: same keep/drop idea, with Valorant-specific markers. */
+const VALORANT_TITLE_RULE = ["json-val-news"];
 const DISABLED_OFFICIAL = new Set(["json-pvp-news", "json-lol-news", "json-miyoushe-ys", "json-miyoushe-sr", "web-yjwujian", "web-gp-qq", "web-lolesports"]);
 /** Listings that print no absolute date: their detail pages (or a later listing) date them. */
-const UNDATED_LISTING = new Set(["web-17173", "web-sina-esports", "web-wanplus", "web-youxituoluo", "web-indienova", "web-gp-qq"]);
+const UNDATED_LISTING = new Set(["web-17173", "web-sina-esports", "web-wanplus", "web-youxituoluo", "web-indienova", "web-gp-qq", "web-playvalorant-news"]);
 
 test("the seed holds the media list and the official list, nothing else", () => {
   assert.deepEqual(sources.map((s) => s.id).sort(), [...MEDIA, ...OFFICIAL, ...HOT].sort());
@@ -95,14 +99,24 @@ test("every game source has a config its kind implements and the agreed defaults
   assert.deepEqual(byId.get("rss-megacrit-news")!.config.allowUrlPrefixes, ["https://megacrit.com/news/"]);
   assert.equal(byId.get("rss-megacrit-news")!.owner_entity_id, "mega-crit");
   assert.equal(byId.get("web-larian-news")!.owner_entity_id, "larian");
+  for (const id of ["json-val-news", "web-playvalorant-news"]) {
+    assert.notEqual(byId.get(id)!.enabled, false, id);
+    assert.equal(byId.get(id)!.tier, "T1", id);
+    assert.equal(byId.get(id)!.owner_entity_id, "valorant", id);
+  }
+  assert.ok(byId.get("json-val-news")!.config.ingestNoiseFilter, "json-val-news title rule");
+  assert.equal(byId.get("web-playvalorant-news")!.config.ingestNoiseFilter, undefined, "playvalorant uses URL prefixes");
 });
 
 test("the title rule sits on the single-game announcement sources only", () => {
   const withRule = sources.filter((s) => s.config.ingestNoiseFilter?.keepIfMatches?.includes("版本更新")).map((s) => s.id);
-  assert.deepEqual(withRule.sort(), [...SINGLE_GAME].sort());
+  assert.deepEqual(withRule.sort(), [...SINGLE_GAME, ...VALORANT_TITLE_RULE].sort());
   const rules = SINGLE_GAME.map((id) => JSON.stringify(byId.get(id)!.config.ingestNoiseFilter));
   assert.equal(new Set(rules).size, 1, "one shared rule");
-  for (const id of ["rss-ps-blog-zh-hant", "rss-xbox-wire", "rss-nintendo-jp", "web-nintendo-hk", "rss-steam-news", "rss-steam-cs2", "rss-steam-dota2", "rss-steam-isaac-rebirth", "rss-steam-sts2", "rss-steam-mewgenics", "rss-steam-bg3", "rss-megacrit-news", "web-larian-news"]) {
+  const valRule = byId.get("json-val-news")!.config.ingestNoiseFilter;
+  assert.ok(valRule.keepIfMatches.includes("版本更新") && valRule.keepIfMatches.includes("无畏契约"), "Valorant keep list");
+  assert.ok(valRule.dropMarkersTitleOnly.includes("夜市") && valRule.dropMarkersTitleOnly.includes("商城"), "Valorant drop list");
+  for (const id of ["rss-ps-blog-zh-hant", "rss-xbox-wire", "rss-nintendo-jp", "web-nintendo-hk", "rss-steam-news", "rss-steam-cs2", "rss-steam-dota2", "rss-steam-isaac-rebirth", "rss-steam-sts2", "rss-steam-mewgenics", "rss-steam-bg3", "rss-megacrit-news", "web-larian-news", "web-playvalorant-news"]) {
     assert.equal(byId.get(id)!.config.ingestNoiseFilter, undefined, id);
   }
 });
