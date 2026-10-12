@@ -11,7 +11,7 @@ import {
   appendEvent, bumpCounters, claimTask, finishTask, getTask, insertAssistantMessage, insertEvidence,
   listEvidence, listMessages, renewLease, setActiveReceipt, updateDraft, type TaskRow,
 } from "../db/store.ts";
-import { ASK_TOOL_LABELS_ZH, askToolSpecs, executeAskTool, type AskToolName } from "../tools/whitelist.ts";
+import { ASK_TOOL_LABELS_ZH, askToolSpecs, executeAskTool, friendlyStepSummary, type AskToolName } from "../tools/whitelist.ts";
 import { askSystemPrompt, PROMPT_VERSION } from "./prompt.ts";
 import { checkCitations } from "./citations.ts";
 
@@ -285,7 +285,7 @@ export async function runAskTask(opts: LoopOptions): Promise<void> {
               id: e.evidenceId, kind: e.kind, title: e.title, siteUrl: e.siteUrl, originalUrl: e.originalUrl, sourceName: e.sourceName,
             })),
           });
-          await appendEvent(opts.taskId, "step_end", { stepId, ok: true, summary: exec.text.slice(0, 240) });
+          await appendEvent(opts.taskId, "step_end", { stepId, ok: true, summary: friendlyStepSummary(exec) });
           const toolText = `证据编号：${ids.map((id) => `[${id}]`).join(" ")}\n${exec.text}`;
           messages.push({ role: "tool", tool_call_id: tc.id, content: toolText });
         } else {

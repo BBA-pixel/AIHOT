@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import { PhoneBar } from "../../../apps/web/app/components/shell/PhoneBar";
 import type { Screen } from "../../../apps/web/app/components/shell/screens";
 import { pageMeta } from "../../../apps/web/app/lib/seo";
@@ -78,6 +79,10 @@ function useSessionId() {
   return { sessionId, ensure, reset };
 }
 
+function isInternalSitePath(href: string) {
+  return href.startsWith("/") && !href.startsWith("//") && !/^(javascript|data|vbscript):/i.test(href);
+}
+
 /** Render answer text safely: no remote images/iframes; only evidence URLs are clickable. */
 function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evidence[]; streaming?: boolean }) {
   const allowed = useMemo(() => {
@@ -102,7 +107,9 @@ function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evi
         if (md) {
           const href = md[2]!;
           if (isAllowedAskHref(href, allowed)) {
-            return <a key={i} href={href} className="text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors hover:decoration-accent" target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">{md[1]}</a>;
+            const cls = "text-accent underline decoration-accent/40 underline-offset-[3px] transition-colors hover:decoration-accent";
+            if (isInternalSitePath(href)) return <Link key={i} to={href} className={cls}>{md[1]}</Link>;
+            return <a key={i} href={href} className={cls} target={href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer">{md[1]}</a>;
           }
           return <span key={i}>{md[1]}</span>;
         }
@@ -118,43 +125,79 @@ function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evi
   );
 }
 
+/** Fallback labels when SSE omits labelZh (keep in sync with ASK_TOOL_LABELS_ZH). */
+const TOOL_LABEL_ZH: Record<string, string> = {
+  get_latest: "查近期资讯",
+  search: "站内搜索",
+  get_hot_topics: "查热点",
+  get_story: "查事件进展",
+  explain_selection: "解释入选",
+  explain_hot: "解释上榜",
+};
+
+function toolLabel(tool: string, labelZh?: string) {
+  if (labelZh && labelZh.trim()) return labelZh.trim();
+  return TOOL_LABEL_ZH[tool] ?? tool;
+}
+
+/** Drop model-facing tool bodies (GAMEHOT fence / 安全边界 / raw item URLs) from older SSE summaries. */
+function uiStepSummary(summary: string | undefined, status: Step["status"]): string | null {
+  if (status === "running") return null;
+  if (status === "fail") {
+    const s = (summary ?? "").trim();
+    if (!s) return "失败";
+    // Failures already send short human messages; still strip fence leaks.
+    if (/安全边界|不可信外部资料|#\s*GAMEHOT|https?:\/\//i.test(s)) return "失败";
+    return s.slice(0, 80);
+  }
+  const s = (summary ?? "").trim();
+  if (!s) return null;
+  if (/安全边界|不可信外部资料|#\s*GAMEHOT|回答提示|原文：/i.test(s)) return null;
+  if (/https?:\/\//i.test(s) && s.length > 60) return null;
+  return s.slice(0, 80);
+}
+
 function StepStatusMark({ status }: { status: Step["status"] }) {
   if (status === "running") {
-    return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />;
+    return <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />;
   }
   if (status === "ok") {
-    return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-ok" aria-hidden />;
+    return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-ok" aria-hidden />;
   }
-  return <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-hot" aria-hidden />;
+  return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-hot" aria-hidden />;
 }
 
 function ToolSteps({ steps }: { steps: Step[] }) {
   const running = steps.some((s) => s.status === "running");
-  const ok = steps.filter((s) => s.status === "ok").length;
-  const label = running ? `查阅中 · ${ok}/${steps.length}` : `查阅步骤 · ${steps.length}`;
+  const names = steps.map((s) => toolLabel(s.tool, s.labelZh));
+  const header = running
+    ? `正在调用 · ${names.filter((_, i) => steps[i]!.status === "running").join("、") || names.join("、")}`
+    : `已调用工具 · ${names.join("、")}`;
   return (
-    <details className="group mb-3 rounded-control border border-line-soft bg-bg-sunk/60 open:bg-bg-sunk">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-[12.5px] tracking-wide text-ink-3 marker:content-none [&::-webkit-details-marker]:hidden">
-        <span className="font-medium text-ink-2">{label}</span>
-        <span className="ml-auto text-[11px] text-ink-4 transition-transform group-open:rotate-180" aria-hidden>▾</span>
-      </summary>
-      <ol className="space-y-2 border-t border-line-soft px-3 py-2.5">
-        {steps.map((s) => (
-          <li key={s.stepId} className="flex gap-2.5 text-[12.5px] leading-5 text-ink-3">
-            <StepStatusMark status={s.status} />
-            <div className="min-w-0">
-              <div className="text-ink-2">
-                {s.labelZh}
-                <span className="ml-1.5 text-ink-4">
-                  {s.status === "running" ? "执行中" : s.status === "ok" ? "完成" : "失败"}
-                </span>
-              </div>
-              {s.summary ? <p className="mt-0.5 text-ink-4">{s.summary}</p> : null}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </details>
+    <div className="mb-3 rounded-control border border-line-soft bg-bg-sunk/60">
+      <div className="flex items-center gap-2 px-3 py-2 text-[12.5px] tracking-wide text-ink-3">
+        <span className="font-medium text-ink-2">{header}</span>
+      </div>
+      <ul className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
+        {steps.map((s) => {
+          const label = toolLabel(s.tool, s.labelZh);
+          const hint = uiStepSummary(s.summary, s.status);
+          const statusZh = s.status === "running" ? "执行中" : s.status === "ok" ? "完成" : "失败";
+          return (
+            <li
+              key={s.stepId}
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-line-soft bg-surface/80 px-2.5 py-1 text-[12px] leading-4 text-ink-2"
+              title={hint ? `${label} · ${statusZh} · ${hint}` : `${label} · ${statusZh}`}
+            >
+              <StepStatusMark status={s.status} />
+              <span className="font-medium text-ink">{label}</span>
+              <span className="text-ink-4">{statusZh}</span>
+              {hint ? <span className="hidden truncate text-ink-4 sm:inline max-w-[12rem]">· {hint}</span> : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -177,7 +220,10 @@ function Citations({ evidence }: { evidence: Evidence[] }) {
                   <span className="text-ink">{e.title ?? "证据"}</span>
                   {e.sourceName ? <span className="ml-1.5 text-[12px] text-ink-4">{e.sourceName}</span> : null}
                   <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px]">
-                    {!e.unavailable && e.siteUrl && isAllowedAskHref(e.siteUrl, new Set([e.siteUrl])) && (
+                    {!e.unavailable && e.siteUrl && isInternalSitePath(e.siteUrl) && (
+                      <Link className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent" to={e.siteUrl}>站内</Link>
+                    )}
+                    {!e.unavailable && e.siteUrl && !isInternalSitePath(e.siteUrl) && isAllowedAskHref(e.siteUrl, new Set([e.siteUrl])) && (
                       <a className="text-accent underline decoration-accent/30 underline-offset-2 hover:decoration-accent" href={e.siteUrl}>站内</a>
                     )}
                     {!e.unavailable && e.originalUrl && (
@@ -219,6 +265,29 @@ function EmptyState({ onPick }: { onPick: (q: string) => void }) {
   );
 }
 
+function stepsFromSnap(raw: Array<{ type: string; payload?: Record<string, unknown> }>): Step[] {
+  const steps: Step[] = [];
+  for (const s of raw) {
+    const p = s.payload ?? {};
+    if (s.type === "step_start") {
+      steps.push({
+        stepId: String(p.stepId ?? ""),
+        tool: String(p.tool ?? ""),
+        labelZh: String(p.labelZh ?? p.tool ?? ""),
+        status: "running",
+      });
+    }
+    if (s.type === "step_end") {
+      const cur = steps.find((x) => x.stepId === p.stepId);
+      if (cur) {
+        cur.status = p.ok ? "ok" : "fail";
+        cur.summary = typeof p.summary === "string" ? p.summary : undefined;
+      }
+    }
+  }
+  return steps;
+}
+
 export default function AskPage() {
   const { sessionId, ensure, reset } = useSessionId();
   const [input, setInput] = useState("");
@@ -244,18 +313,7 @@ export default function AskPage() {
     if (!res.ok) return null;
     const snap = await res.json();
     cursorRef.current = snap.snapshotSeq ?? 0;
-    const steps: Step[] = [];
-    for (const s of snap.steps ?? []) {
-      const p = s.payload ?? {};
-      if (s.type === "step_start") steps.push({ stepId: p.stepId, tool: p.tool, labelZh: p.labelZh, status: "running" });
-      if (s.type === "step_end") {
-        const cur = steps.find((x) => x.stepId === p.stepId);
-        if (cur) {
-          cur.status = p.ok ? "ok" : "fail";
-          cur.summary = p.summary;
-        }
-      }
-    }
+    const steps = stepsFromSnap(snap.steps ?? []);
     const text = snap.contentInvalidated
       ? "相关来源已不可用，原回答不再展示"
       : (snap.finalAnswer ?? snap.draftAnswer ?? "");
@@ -348,7 +406,8 @@ export default function AskPage() {
     };
   }, []);
 
-  // Refresh restore
+  // Refresh / return-to-/ask restore: hydrate steps + evidence from each task snapshot
+  // so「站内」citation chips survive navigating to an item and back.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -363,9 +422,36 @@ export default function AskPage() {
       if (cancelled) return;
       const msgs: Bubble[] = [];
       for (const m of data.messages ?? []) {
-        if (m.role === "user") msgs.push({ role: "user", text: m.content });
-        else if (m.role === "assistant") msgs.push({ role: "assistant", text: m.content, steps: [], evidence: [], status: "completed" });
+        if (m.role === "user") {
+          msgs.push({ role: "user", text: m.content });
+          continue;
+        }
+        if (m.role !== "assistant") continue;
+        let steps: Step[] = [];
+        let evidence: Evidence[] = [];
+        let status = "completed";
+        let text = m.content as string;
+        let contentInvalidated = false;
+        if (m.taskId) {
+          try {
+            const tr = await fetch(`/api/ask/tasks/${m.taskId}`);
+            if (tr.ok) {
+              const snap = await tr.json();
+              steps = stepsFromSnap(snap.steps ?? []);
+              evidence = (snap.evidence ?? []) as Evidence[];
+              status = String(snap.status ?? status);
+              contentInvalidated = !!snap.contentInvalidated;
+              if (contentInvalidated) text = "相关来源已不可用，原回答不再展示";
+              else if (typeof snap.finalAnswer === "string" && snap.finalAnswer) text = snap.finalAnswer;
+            }
+          } catch {
+            // keep message text; citations may be empty until next send
+          }
+        }
+        if (cancelled) return;
+        msgs.push({ role: "assistant", text, steps, evidence, status, contentInvalidated });
       }
+      if (cancelled) return;
       setBubbles(msgs);
       const running = (data.recentTasks ?? []).find((t: { status: string }) => t.status === "queued" || t.status === "running");
       if (running) {
