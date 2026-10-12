@@ -243,7 +243,7 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
     article.grouping_status = "complete";
   }
   const [source] = await tx<SourceFacts[]>`
-    SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext FROM sources WHERE id = ${article.source_id}`;
+    SELECT id, name, kind, tier, participation_mode, first_party, site_fulltext, syndicate_fulltext, owner_entity_id FROM sources WHERE id = ${article.source_id}`;
   if (!source) return null;
   const [analysis] = await tx<AnalysisRow[]>`
     SELECT id, relevance, category, tags, subjects, title_zh, summary_zh, reason_zh, score, selected
@@ -273,7 +273,11 @@ export async function publishArticleTx(tx: Tx, articleId: string, options: Publi
   const title = pickString(f.title, original?.title ?? zhTitle ?? (isChineseTitle || article.x_post ? collapseWhitespace(article.title) : null));
   const summary = pickString(f.summary, original ? original.summary : analysis?.summary_zh ?? null);
   const category = pickString(f.category, analysis?.category ?? null);
-  const tags = Array.isArray(f.tags) ? (f.tags as string[]) : [...new Set([...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)])];
+  const baseTags = Array.isArray(f.tags) ? (f.tags as string[]) : [...(analysis?.tags ?? []), ...(analysis?.subjects ?? []).map((s) => `entity:${s}`)];
+  // Official / owned sources must carry their entity tag so company topics and entity search work
+  // even when the model omits the subject (common for short CN ops notices).
+  if (source.owner_entity_id) baseTags.push(`entity:${source.owner_entity_id}`);
+  const tags = [...new Set(baseTags)];
   const score = typeof f.score === "number" ? f.score : analysis?.score ?? null;
   const relevance = typeof f.relevance === "string" ? (f.relevance as string) : analysis?.relevance ?? null;
   const judgedSelected = typeof f.selected === "boolean" ? (f.selected as boolean) : analysis?.selected ?? null;
