@@ -956,7 +956,8 @@
         "detail": {
           "maxFetches": 8,
           "titleSelector": "h1",
-          "publishedAtSelector": "time"
+          "publishedAtSelector": "time",
+          "titleAuthoritative": true
         },
         "_aihot": {
           "initialBackfillLimit": 8,

@@ -13,6 +13,7 @@ on:
           - diagnose
           - collect-valorant
           - diagnose-and-collect-valorant
+          - backfill-valorant-entity-tags
           - restart-ask-stack
 
 concurrency:
@@ -69,7 +70,7 @@ jobs:
              WHERE s.id IN ('json-val-news','web-playvalorant-news')
              GROUP BY s.id
              ORDER BY s.id;
-            SELECT s.id AS source_id, count(p.id) AS publications
+            SELECT s.id AS source_id, count(p.article_id) AS publications
               FROM sources s
               LEFT JOIN articles a ON a.source_id = s.id
               LEFT JOIN publications p ON p.article_id = a.id
@@ -79,6 +80,12 @@ jobs:
             SELECT count(*) AS pubs_title_hit
               FROM publications p
              WHERE p.title ILIKE '%无畏%' OR p.title ILIKE '%valorant%' OR p.title ILIKE '%VALORANT%' OR p.title ILIKE '%打瓦%';
+            SELECT a.id, a.source_id, left(a.title,70) AS title, a.published_at, a.body_status,
+                   p.eligible, p.selected, p.visibility, p.published_at AS pub_published_at, p.timeline_at
+              FROM articles a
+              LEFT JOIN publications p ON p.article_id = a.id
+             WHERE a.source_id IN ('json-val-news','web-playvalorant-news')
+             ORDER BY coalesce(a.published_at, a.discovered_at) DESC NULLS LAST;
             SQL
             }
 
@@ -90,7 +97,20 @@ jobs:
               sudo docker compose exec -T db psql -U aihot -d aihot -c \
                 "SELECT s.id, count(a.id) AS articles FROM sources s LEFT JOIN articles a ON a.source_id=s.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id ORDER BY s.id;"
               sudo docker compose exec -T db psql -U aihot -d aihot -c \
-                "SELECT s.id, count(p.id) AS pubs FROM sources s LEFT JOIN articles a ON a.source_id=s.id LEFT JOIN publications p ON p.article_id=a.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id ORDER BY s.id;"
+                "SELECT s.id, count(p.article_id) AS pubs FROM sources s LEFT JOIN articles a ON a.source_id=s.id LEFT JOIN publications p ON p.article_id=a.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id ORDER BY s.id;"
+            }
+
+
+            backfill_valorant_tags() {
+              echo "=== status before ==="
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT a.id, a.source_id, left(a.title,60) AS title, a.published_at, a.body_status, a.grouping_status, p.eligible, p.selected, (p.tags @> ARRAY['entity:valorant']) AS has_entity, p.timeline_at FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id IN ('json-val-news','web-playvalorant-news') ORDER BY coalesce(p.timeline_at,a.published_at,a.discovered_at) DESC NULLS LAST;"
+              echo "=== requeue articles missing publications ==="
+              sudo docker compose run --rm --no-deps worker node scripts/requeue-processing.ts --sources json-val-news,web-playvalorant-news
+              echo "=== republish existing pubs (owner entity tag injection) ==="
+              sudo docker compose run --rm --no-deps worker node scripts/republish-sources.ts json-val-news web-playvalorant-news
+              echo "=== status after ==="
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT a.id, a.source_id, left(a.title,60) AS title, a.published_at, p.eligible, p.selected, (p.tags @> ARRAY['entity:valorant']) AS has_entity, p.timeline_at FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id IN ('json-val-news','web-playvalorant-news') ORDER BY coalesce(p.timeline_at,a.published_at,a.discovered_at) DESC NULLS LAST;"
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT count(*) FILTER (WHERE p.eligible) AS eligible, count(*) FILTER (WHERE p.selected) AS selected, count(*) FILTER (WHERE p.tags @> ARRAY['entity:valorant']) AS with_entity, count(*) FILTER (WHERE p.timeline_at > now() - interval '7 days') AS in_7d FROM articles a JOIN publications p ON p.article_id=a.id WHERE a.source_id IN ('json-val-news','web-playvalorant-news');"
             }
 
             restart_ask() {
@@ -106,6 +126,7 @@ jobs:
               diagnose) diagnose ;;
               collect-valorant) collect_valorant ;;
               diagnose-and-collect-valorant) diagnose; collect_valorant; diagnose ;;
+              backfill-valorant-entity-tags) backfill_valorant_tags ;;
               restart-ask-stack) restart_ask; diagnose ;;
               *) echo "unknown op"; exit 1 ;;
             esac

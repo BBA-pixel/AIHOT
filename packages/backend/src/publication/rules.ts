@@ -9,6 +9,7 @@ export interface SourceFacts {
   first_party: boolean;
   site_fulltext: boolean;
   syndicate_fulltext: boolean;
+  owner_entity_id: string | null;
 }
 
 export function channelOf(sourceKind: string, hasXPost: boolean): "x" | "news" {
