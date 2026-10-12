@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS ask_tasks (
+  id uuid PRIMARY KEY,
+  session_id uuid NOT NULL REFERENCES ask_sessions(id) ON DELETE CASCADE,
+  client_request_id text NOT NULL,
+  status text NOT NULL,
+  user_message text NOT NULL,
+  draft_answer text NULL,
+  final_answer text NULL,
+  model_calls int NOT NULL DEFAULT 0,
+  tool_calls int NOT NULL DEFAULT 0,
+  started_at timestamptz NULL,
+  finished_at timestamptz NULL,
+  cancel_requested boolean NOT NULL DEFAULT false,
+  error_code text NULL,
+  error_message text NULL,
+  lease_owner text NULL,
+  lease_expires_at timestamptz NULL,
+  round_index int NOT NULL DEFAULT 0,
+  active_receipt_id bigint NULL,
+  content_invalidated boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (session_id, client_request_id)
+);

@@ -40,19 +40,28 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
 
 /**
  * The sidebar: the engine's sections with the modules' between 内容 and 更多; a module naming a section
- * that is already there adds to it.
+ * that is already there adds to it (including 更多 — e.g. AI 问答 after Agent).
  */
 export function sidebar(): Array<{ title: string; items: NavItem[] }> {
-  const [content, ...rest] = SECTIONS;
-  const more = rest.pop()!;
-  const sections = [content!, ...rest].map((s) => ({ ...s, items: [...s.items] }));
+  const sections = SECTIONS.map((s) => ({ ...s, items: [...s.items] }));
+  const moreIdx = sections.findIndex((s) => s.title === "更多");
   for (const m of webModules()) {
     if (!m.sidebar) continue;
     const section = sections.find((s) => s.title === m.sidebar!.section);
-    if (section) section.items.push(...m.sidebar.items);
-    else sections.push({ title: m.sidebar.section, items: [...m.sidebar.items] });
+    if (section) {
+      if (section.title === "更多") {
+        const agentIdx = section.items.findIndex((i) => i.to === "/agent");
+        const at = agentIdx >= 0 ? agentIdx + 1 : section.items.length;
+        section.items.splice(at, 0, ...m.sidebar.items);
+      } else {
+        section.items.push(...m.sidebar.items);
+      }
+    } else {
+      const insertAt = moreIdx >= 0 ? moreIdx : sections.length;
+      sections.splice(insertAt, 0, { title: m.sidebar.section, items: [...m.sidebar.items] });
+    }
   }
-  return [...sections, more];
+  return sections;
 }
 
 /** A sidebar entry is lit on its pages; 日报 also covers weekly and monthly reports, 资讯 also covers 全部 (/all). */

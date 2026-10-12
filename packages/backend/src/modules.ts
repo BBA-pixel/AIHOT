@@ -57,8 +57,13 @@ export interface AgentAbility {
   title: string;
   /** The guide's table row: what the user wants to know. */
   ask: string;
-  /** The Markdown answer. */
-  answer: () => Promise<string>;
+  /**
+   * Query parameter names allowed on the Agent REST route (strictQuery). Empty / omitted keeps the
+   * previous no-argument behaviour. Values are passed to `answer`.
+   */
+  query?: string[];
+  /** The Markdown answer; `args` holds declared query parameters (may be empty). */
+  answer: (args?: Record<string, string>) => Promise<string>;
   etagPrefix: string;
   cacheControl: string;
   mcp: {

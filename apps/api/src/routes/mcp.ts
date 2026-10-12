@@ -228,7 +228,9 @@ function registerTools(server: McpServer, say: typeof ok) {
       { description: ability.mcp.description, inputSchema: ability.mcp.input, annotations: ANNOTATIONS },
       safe(name, async (args: Record<string, unknown>) => {
         const { text, structured } = await recent(`${name}:${JSON.stringify(args)}`, () => ability.mcp.run(args));
-        return say(text, structured);
+        const err = structured.error as { code?: string; message?: string } | undefined;
+        if (err?.code) return fail(err.code, err.message ?? text);
+        return ok(text, structured);
       }),
     );
   }
