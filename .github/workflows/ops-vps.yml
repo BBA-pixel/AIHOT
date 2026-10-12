@@ -14,6 +14,7 @@ on:
           - collect-valorant
           - diagnose-and-collect-valorant
           - backfill-valorant-entity-tags
+          - force-json-val-analyze
           - restart-ask-stack
 
 concurrency:
@@ -101,6 +102,17 @@ jobs:
             }
 
 
+
+            force_json_val_analyze() {
+              echo "=== mark pending json-val bodies unconfirmed and requeue analyze ==="
+              sudo docker compose exec -T db psql -U aihot -d aihot -v ON_ERROR_STOP=1 <<'SQL'
+            UPDATE articles SET body_status = 'unconfirmed', processing_attempts = 0, processing_retry_at = NULL, processing_error = 'ops: skip SPA extract', processing_state = 'new'
+             WHERE source_id = 'json-val-news' AND body_status = 'pending';
+            SELECT id, body_status, processing_state, left(title,50) FROM articles WHERE source_id = 'json-val-news';
+            SQL
+              sudo docker compose run --rm --no-deps worker node scripts/requeue-processing.ts --sources json-val-news
+            }
+
             backfill_valorant_tags() {
               echo "=== status before ==="
               sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT a.id, a.source_id, left(a.title,60) AS title, a.published_at, a.body_status, a.grouping_status, p.eligible, p.selected, (p.tags @> ARRAY['entity:valorant']) AS has_entity, p.timeline_at FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id IN ('json-val-news','web-playvalorant-news') ORDER BY coalesce(p.timeline_at,a.published_at,a.discovered_at) DESC NULLS LAST;"
@@ -127,6 +139,7 @@ jobs:
               collect-valorant) collect_valorant ;;
               diagnose-and-collect-valorant) diagnose; collect_valorant; diagnose ;;
               backfill-valorant-entity-tags) backfill_valorant_tags ;;
+              force-json-val-analyze) force_json_val_analyze ;;
               restart-ask-stack) restart_ask; diagnose ;;
               *) echo "unknown op"; exit 1 ;;
             esac
