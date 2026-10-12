@@ -46,7 +46,7 @@ export function CategoryTabs({ base, category, channel = "all", layoutId, classN
   return <PillTabs items={filterOptions(base, params, "全部").map(o => ({ ...o, prefetch: 'intent' as const }))} active={filterKey(category, channel)} layoutId={layoutId} label="筛选" className={className} />;
 }
 
-/** The 资讯 column's 精选 | 全部 switch (a filter in use carries over): in the phone bar, and beside the desktop title. */
+/** Phone-only 精选 | 全部 switch (a filter in use carries over). Desktop uses sidebar entries 精选 / 全部动态. */
 export function ScopeTabs({ base, layoutId: _layoutId }: { base: "/" | "/all"; layoutId: string }) {
   const [params] = useSearchParams();
   const scope = (to: string) => hrefWith(to, params, { q: null, tab: null, search: null });
@@ -63,7 +63,8 @@ export function ScopeTabs({ base, layoutId: _layoutId }: { base: "/" | "/all"; l
 }
 
 /**
- * The phone bar of 精选 and 全部: the brand, the 精选 | 全部 switch, and buttons for the filter sheet and search.
+ * The phone bar of 精选 and 全部: the brand, the 精选 | 全部 switch (desktop uses sidebar entries instead),
+ * and buttons for the filter sheet and search.
  */
 export function FeedBar({ base, category, channel }: { base: "/" | "/all"; category: CategoryKey | null; channel: ChannelKey }) {
   const [sheet, setSheet] = useState(false);
