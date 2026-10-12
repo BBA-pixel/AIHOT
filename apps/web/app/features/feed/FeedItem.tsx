@@ -7,7 +7,7 @@ import { IntentLink } from "../../components/ui/IntentLink";
 import type { GroupInfo, FeedItemSummary, TimelineFilters } from "@aihot/contracts/site";
 import { CATEGORY_LABELS } from "@aihot/contracts/taxonomy";
 import { ITEM_COPY } from "@aihot/site";
-import { SameEventBadge, SelectedBadge } from "../../components/ui/Badge";
+import { OfficialSourceBadge, SameEventBadge, SelectedBadge } from "../../components/ui/Badge";
 import { ScoreLabel } from "../../components/ui/Score";
 import { beijingTime } from "@aihot/contracts/time";
 import { MediaThumbs, SourceLine, StarButton } from "./parts";
@@ -46,6 +46,16 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
           <time dateTime={at} className="mono shrink-0 text-[12px] lg:hidden">
             · {beijingTime(at)}
           </time>
+        )}
+        {item.firstParty && (
+          <span className="inline-flex lg:hidden">
+            <OfficialSourceBadge />
+          </span>
+        )}
+        {item.firstParty && (
+          <span className="hidden lg:inline-flex">
+            <OfficialSourceBadge />
+          </span>
         )}
         {item.selected && (
           <span className="hidden lg:inline-flex">

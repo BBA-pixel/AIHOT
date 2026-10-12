@@ -41,7 +41,7 @@ export const SITE = {
   /** 一行小字：分享图、海报下方。 */
   tagline: "国内玩家每天该知道的游戏热点",
   /** 搜索引擎读到的关键词（首页结构化数据）。 */
-  keywords: ["游戏资讯", "游戏新闻", "游戏日报", "游戏热点", "新游", "版本更新", "电竞"] as string[],
+  keywords: ["游戏资讯", "游戏新闻", "游戏日报", "游戏热点", "新游", "更新", "赛事", "行业"] as string[],
   /** 网站开始收录的年份（结构化数据的时间范围，选填）。 */
   since: null as string | null,
   /** 界面语言（HTML lang、og:locale）。 */
@@ -207,7 +207,7 @@ export const REPORTS = {
    * 先尽量满足下限（不够不硬凑），再按重要性补到上限；超过上限的进快讯。
    */
   dailyLayout: {
-    sectionQuotas: { "new-games": [2, 4], esports: [2, 4], industry: [3, 5] } as Record<string, readonly [number, number]>,
+    sectionQuotas: { "new-games": [2, 4], updates: [2, 4], esports: [2, 4], industry: [2, 4] } as Record<string, readonly [number, number]>,
   },
 };
 

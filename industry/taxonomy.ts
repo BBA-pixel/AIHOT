@@ -11,9 +11,10 @@
  * feedLabel 是分类 RSS 标题里的名字（不写就用 label）。公开接口、RSS 和 MCP 里要把一类并进另一类发布，写在站点设置里（site/site.ts 的 PUBLIC_CATEGORIES）。
  */
 export const CATEGORIES = [
-  { key: "new-games", label: "新游", feedLabel: "新游", section: "新游与测试", guide: "尚未上线或刚上线的具体游戏：首次曝光、定档、预约、测试招募与开测、正式上线或发售、版号过审。已上线游戏的新版本、新赛季和 DLC 不算新游，归行业。" },
-  { key: "esports", label: "电竞", feedLabel: "电竞", section: "电竞赛事", guide: "电竞赛事的赛程与结果、战队与选手动态、转会、联盟与赛事规则。只是在游戏里办的普通玩家活动不算电竞，归行业。" },
-  { key: "industry", label: "行业", feedLabel: "行业动态", section: "行业动态", guide: "已上线游戏的重大运营变化（大版本更新、新赛季、资料片与 DLC、新角色与卡池、大型活动与联动、平衡调整、国服停服或回归），厂商经营、发行与代理、财报与市场数据、融资并购、人事、版号与政策监管、诉讼，以及评测、口碑、玩家话题与观点。由当事方发出、带有态度的消息不因此变成观点。" },
+  { key: "new-games", label: "新游", feedLabel: "新游", section: "新游与测试", guide: "尚未上线或刚上线的具体游戏：首次曝光、定档、预约、测试招募与开测、正式上线或发售、版号过审。已上线游戏的新版本、新赛季、DLC 和新地图/模式不算新游，归更新。" },
+  { key: "updates", label: "更新", feedLabel: "更新", section: "版本与运营", guide: "已上线游戏的运营与内容更新：版本与补丁、平衡调整、新赛季、资料片与 DLC、新地图/模式、新角色与卡池、大型活动与联动、国服停服或回归。尚未上线的首次曝光与定档归新游；厂商经营、财报、政策与评测归行业；赛事本身归赛事。" },
+  { key: "esports", label: "赛事", feedLabel: "赛事", section: "电竞赛事", guide: "电竞赛事的赛程与结果、战队与选手动态、转会、联盟与赛事规则。只是在游戏里办的普通玩家活动不算赛事，归更新或行业。" },
+  { key: "industry", label: "行业", feedLabel: "行业", section: "行业动态", guide: "厂商经营、发行与代理、财报与市场数据、融资并购、人事、版号与政策监管、诉讼，以及评测、口碑、玩家话题与观点。已上线游戏的版本、赛季、DLC 与活动归更新，不归行业。由当事方发出、带有态度的消息不因此变成观点。" },
 ] as const satisfies ReadonlyArray<{ key: string; label: string; feedLabel?: string; section: string; guide: string; commentary?: true }>;
 
 /**
