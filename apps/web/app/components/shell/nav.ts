@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { webModules } from "../../site-modules";
 import {
-  IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconHistory, IconMessage, IconPlug, IconUser,
+  IconBolt, IconBookmark, IconDoc, IconFlame, IconGrid, IconHeart, IconPlug, IconUser,
 } from "../icons";
 
 export interface NavItem {
@@ -32,8 +32,6 @@ const SECTIONS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { to: "/agent", label: "Agent", icon: IconPlug },
       { to: "/about", label: "关于", icon: IconHeart },
-      { to: "/changelog", label: "更新日志", icon: IconHistory, changelog: true },
-      { to: "/feedback", label: "反馈", icon: IconMessage },
     ],
   },
 ];
@@ -98,7 +96,7 @@ const ENGINE_TABS: Tab[] = [
   { key: "hot", to: "/hot", label: "热点", icon: IconFlame },
   { key: "daily", to: "/daily", label: "日报", icon: IconDoc },
   { key: "topics", to: "/topics", label: "主题", icon: IconGrid },
-  { key: "me", to: "/more", label: "我的", icon: IconUser, changelog: true },
+  { key: "me", to: "/more", label: "我的", icon: IconUser },
 ];
 
 /** The tab bar: the engine's, the modules' before 我的. */
