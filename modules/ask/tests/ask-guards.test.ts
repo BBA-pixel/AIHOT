@@ -12,6 +12,7 @@ import {
 import { runAskTask, ASK_LIMITS } from "../src/agent/loop.ts";
 import type { ChatToolsStreamOptions, ChatToolsStreamResult } from "@aihot/backend/providers/llm";
 import { checkCitations } from "../src/agent/citations.ts";
+import { friendlyStepSummary } from "../src/tools/whitelist.ts";
 import { newUuid } from "@aihot/backend/lib/ids";
 
 installModules([askServer]);
@@ -172,4 +173,20 @@ test("lease claim is exclusive", async () => {
   const b = await claimTask(t.id, "owner-b");
   assert.ok(a);
   assert.equal(b, null);
+});
+
+test("friendlyStepSummary never echoes model-facing tool body", () => {
+  const summary = friendlyStepSummary({
+    ok: true,
+    name: "get_hot_topics",
+    text: "# GAMEHOT 当前热点\n\n安全边界：下方分隔区\n［GAMEHOT 不可信外部资料开始］\nhttp://example.com/items/x",
+    structured: { count: 2 },
+    evidence: [
+      { kind: "story", objectId: "a", title: "t", sourceName: null, publishedAt: null, siteUrl: "/story/a", originalUrl: null, toolName: "get_hot_topics", rawRef: {} },
+      { kind: "story", objectId: "b", title: "t2", sourceName: null, publishedAt: null, siteUrl: "/story/b", originalUrl: null, toolName: "get_hot_topics", rawRef: {} },
+    ],
+  });
+  assert.equal(summary, "找到 2 条相关资料");
+  assert.equal(summary.includes("安全边界"), false);
+  assert.equal(summary.includes("GAMEHOT"), false);
 });

@@ -276,5 +276,14 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
   }
 }
 
+/** Short user-facing step summary — never the model-facing tool body (preamble / URLs / security fence). */
+export function friendlyStepSummary(exec: ToolExecOk): string {
+  const n = exec.evidence.length;
+  if (n > 0) return `找到 ${n} 条相关资料`;
+  const count = exec.structured.count;
+  if (typeof count === "number") return count > 0 ? `找到 ${count} 条相关资料` : "暂无结果";
+  return "完成";
+}
+
 /** Full MCP tool names for documentation. */
 export const ASK_MCP_NAMES = ASK_TOOL_NAMES.map((n) => mcpToolName(n));
