@@ -35,59 +35,62 @@ jobs:
             set -euo pipefail
             cd /opt/gamehot
             OP='${{ inputs.script }}'
-            echo "=== op=$OP host=$(hostname) ==="
+            # Host publishes web on $PORT from .env (often 80); do not trust unset shell PORT.
+            HOST_PORT=$(grep -E '^PORT=' .env | head -1 | cut -d= -f2- || true)
+            HOST_PORT=${HOST_PORT:-80}
+            echo "=== op=$OP host=$(hostname) host_port=$HOST_PORT ==="
             echo "=== git ==="
             git rev-parse --short HEAD || true
             git log -1 --oneline || true
             echo "=== compose ps ==="
             sudo docker compose ps
             echo "=== env flags (redacted) ==="
-            grep -E '^(MODEL_CALLS_ENABLED|COLLECT_ENABLED|SITE_URL|PORT|TRUST_PROXY)=' .env | sed 's/\(KEY\|TOKEN\|SECRET\|PASSWORD\)=.*/\1=***/' || true
-            # Never print secrets
+            grep -E '^(MODEL_CALLS_ENABLED|COLLECT_ENABLED|SITE_URL|PORT|TRUST_PROXY)=' .env || true
             if grep -qE '^(LLM_|OPENAI_|ANTHROPIC_).*(KEY|TOKEN)=' .env; then echo "MODEL_KEY: present"; else echo "MODEL_KEY: missing-or-unmatched"; fi
 
             diagnose() {
               echo "=== api health ==="
-              curl -sS -m 10 http://127.0.0.1:${PORT:-3000}/api/health || curl -sS -m 10 http://127.0.0.1:3000/api/health || true
+              curl -sS -m 10 "http://127.0.0.1:${HOST_PORT}/api/health" || true
               echo
               echo "=== ask session create ==="
-              curl -sS -m 15 -X POST http://127.0.0.1:${PORT:-3000}/api/ask/sessions -H 'content-type: application/json' -d '{}' || true
+              curl -sS -m 15 -X POST "http://127.0.0.1:${HOST_PORT}/api/ask/sessions" -H 'content-type: application/json' -d '{}' || true
               echo
               echo "=== recent api/worker logs ==="
-              sudo docker compose logs --tail=120 api worker 2>&1 | tail -160 || true
-              echo "=== DB: valorant entity/topic/pubs ==="
+              sudo docker compose logs --tail=80 api worker 2>&1 | tail -120 || true
+              echo "=== DB: valorant sources / pubs / topic pool ==="
               sudo docker compose exec -T db psql -U aihot -d aihot -v ON_ERROR_STOP=1 <<'SQL'
-            SELECT id, name FROM entities WHERE id = 'valorant';
-            SELECT slug, name, entity_id FROM topics WHERE slug = 'valorant' OR entity_id = 'valorant';
-            SELECT id, enabled, last_success_at, last_error FROM sources WHERE id IN ('json-val-news','web-playvalorant-news');
-            SELECT s.id AS source_id, count(p.id) AS pubs
+            SELECT id, name, enabled, health, last_ok_at, left(coalesce(last_error,''), 160) AS last_error
+              FROM sources
+             WHERE id IN ('json-val-news','web-playvalorant-news')
+             ORDER BY id;
+            SELECT s.id AS source_id, count(a.id) AS articles
               FROM sources s
-              LEFT JOIN publications p ON p.source_id = s.id
+              LEFT JOIN articles a ON a.source_id = s.id
              WHERE s.id IN ('json-val-news','web-playvalorant-news')
-             GROUP BY s.id;
-            SELECT count(*) AS pubs_mentioning_valorant
+             GROUP BY s.id
+             ORDER BY s.id;
+            SELECT s.id AS source_id, count(p.id) AS publications
+              FROM sources s
+              LEFT JOIN articles a ON a.source_id = s.id
+              LEFT JOIN publications p ON p.article_id = a.id
+             WHERE s.id IN ('json-val-news','web-playvalorant-news')
+             GROUP BY s.id
+             ORDER BY s.id;
+            SELECT count(*) AS pubs_title_hit
               FROM publications p
              WHERE p.title ILIKE '%无畏%' OR p.title ILIKE '%valorant%' OR p.title ILIKE '%VALORANT%' OR p.title ILIKE '%打瓦%';
-            SELECT count(*) AS entity_links FROM publication_entities WHERE entity_id = 'valorant';
-            SELECT count(*) AS selected_for_valorant
-              FROM selections sel
-              JOIN publications p ON p.id = sel.publication_id
-              JOIN publication_entities pe ON pe.publication_id = p.id
-             WHERE pe.entity_id = 'valorant' AND sel.selected = true;
             SQL
             }
 
             collect_valorant() {
-              echo "=== one-shot collect json-val-news web-playvalorant-news (COLLECT_ENABLED stays as in .env) ==="
-              # Run inside worker/api image with same env; force collect via script
+              echo "=== one-shot collect json-val-news web-playvalorant-news ==="
               sudo docker compose run --rm --no-deps worker \
                 node scripts/collect.ts json-val-news web-playvalorant-news
               echo "=== post-collect counts ==="
               sudo docker compose exec -T db psql -U aihot -d aihot -c \
-                "SELECT s.id, count(p.id) AS pubs FROM sources s LEFT JOIN publications p ON p.source_id=s.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id;"
-              # Optionally kick selection/enrichment if needed — print entity links
+                "SELECT s.id, count(a.id) AS articles FROM sources s LEFT JOIN articles a ON a.source_id=s.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id ORDER BY s.id;"
               sudo docker compose exec -T db psql -U aihot -d aihot -c \
-                "SELECT count(*) AS entity_links FROM publication_entities WHERE entity_id='valorant';"
+                "SELECT s.id, count(p.id) AS pubs FROM sources s LEFT JOIN articles a ON a.source_id=s.id LEFT JOIN publications p ON p.article_id=a.id WHERE s.id IN ('json-val-news','web-playvalorant-news') GROUP BY s.id ORDER BY s.id;"
             }
 
             restart_ask() {
@@ -95,7 +98,7 @@ jobs:
               sudo docker compose up -d api worker web
               sleep 5
               sudo docker compose ps
-              curl -sS -m 10 http://127.0.0.1:${PORT:-3000}/api/health || true
+              curl -sS -m 10 "http://127.0.0.1:${HOST_PORT}/api/health" || true
               echo
             }
 

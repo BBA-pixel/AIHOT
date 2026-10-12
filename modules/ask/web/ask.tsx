@@ -26,8 +26,30 @@ type Bubble =
   | { role: "user"; text: string }
   | { role: "assistant"; text: string; steps: Step[]; evidence: Evidence[]; status: string; streaming?: boolean; contentInvalidated?: boolean };
 
+/** Prefer crypto.randomUUID; fall back when the page is not a secure context (plain http://IP). */
 function newId() {
-  return crypto.randomUUID();
+  const c = globalThis.crypto as Crypto | undefined;
+  if (c && typeof c.randomUUID === "function") {
+    try {
+      return c.randomUUID();
+    } catch {
+      // insecure context or implementation quirk
+    }
+  }
+  if (c && typeof c.getRandomValues === "function") {
+    const bytes = new Uint8Array(16);
+    c.getRandomValues(bytes);
+    bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+    bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+    const hex = [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+  // Last resort (non-crypto); still UUID-shaped for the API's uuid check.
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (ch) => {
+    const n = (Math.random() * 16) | 0;
+    const v = ch === "x" ? n : (n & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 function useSessionId() {
@@ -39,7 +61,12 @@ function useSessionId() {
   const ensure = useCallback(async () => {
     if (sessionId) return sessionId;
     const res = await fetch("/api/ask/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? `创建会话失败（${res.status}）`);
+    }
     const data = await res.json();
+    if (!data.sessionId) throw new Error("创建会话失败");
     localStorage.setItem(SESSION_KEY, data.sessionId);
     setSessionId(data.sessionId);
     return data.sessionId as string;
@@ -374,8 +401,8 @@ export default function AskPage() {
       setTaskId(data.taskId);
       cursorRef.current = 0;
       subscribe(data.taskId, 0);
-    } catch {
-      setError("网络错误");
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : "网络错误");
       setStatus("idle");
     }
   };
