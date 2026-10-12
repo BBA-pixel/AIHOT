@@ -15,6 +15,7 @@ on:
           - diagnose-and-collect-valorant
           - backfill-valorant-entity-tags
           - force-json-val-analyze
+          - force-json-vct-rescore
           - restart-ask-stack
 
 concurrency:
@@ -125,6 +126,18 @@ jobs:
               sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT count(*) FILTER (WHERE p.eligible) AS eligible, count(*) FILTER (WHERE p.selected) AS selected, count(*) FILTER (WHERE p.tags @> ARRAY['entity:valorant']) AS with_entity, count(*) FILTER (WHERE p.timeline_at > now() - interval '7 days') AS in_7d FROM articles a JOIN publications p ON p.article_id=a.id WHERE a.source_id IN ('json-val-news','json-vct-news','web-playvalorant-news');"
             }
 
+            force_json_vct_rescore() {
+              echo "=== status before (vct scores / selected) ==="
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT a.id, left(a.title,60) AS title, a.published_at, p.score, p.selected, p.eligible, (p.tags @> ARRAY['entity:valorant']) AS has_entity FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id='json-vct-news' ORDER BY coalesce(a.published_at,a.discovered_at) DESC NULLS LAST;"
+              echo "=== force re-analyze json-vct-news (new selection-score prompt) ==="
+              sudo docker compose run --rm --no-deps worker node scripts/requeue-processing.ts --sources json-vct-news --force-analyze --attempt-tag ops:vct-esports-rescore
+              echo "=== wait briefly for worker ==="
+              sleep 90
+              echo "=== status after ==="
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT a.id, left(a.title,60) AS title, a.published_at, p.score, p.selected, p.eligible, (p.tags @> ARRAY['entity:valorant']) AS has_entity FROM articles a LEFT JOIN publications p ON p.article_id=a.id WHERE a.source_id='json-vct-news' ORDER BY coalesce(a.published_at,a.discovered_at) DESC NULLS LAST;"
+              sudo docker compose exec -T db psql -U aihot -d aihot -c "SELECT count(*) FILTER (WHERE p.selected) AS selected, count(*) FILTER (WHERE p.eligible) AS eligible, round(avg(p.score)::numeric,1) AS avg_score FROM articles a JOIN publications p ON p.article_id=a.id WHERE a.source_id='json-vct-news';"
+            }
+
             restart_ask() {
               echo "=== restart api worker web ==="
               sudo docker compose up -d api worker web
@@ -140,6 +153,7 @@ jobs:
               diagnose-and-collect-valorant) diagnose; collect_valorant; diagnose ;;
               backfill-valorant-entity-tags) backfill_valorant_tags ;;
               force-json-val-analyze) force_json_val_analyze ;;
+              force-json-vct-rescore) force_json_vct_rescore ;;
               restart-ask-stack) restart_ask; diagnose ;;
               *) echo "unknown op"; exit 1 ;;
             esac
