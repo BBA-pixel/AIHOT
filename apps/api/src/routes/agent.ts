@@ -102,11 +102,19 @@ export function registerAgent(app: FastifyInstance) {
       return markdown(req, reply, periodAnswer(body.report, p.kind, "http"), `agent-${p.kind}`, p.byKey);
     }));
   }
-  // The modules' abilities, each answered at its own address.
+  // The modules' abilities, each answered at its own address (optional query args).
   for (const ability of serverModules().flatMap((m) => m.agent?.abilities ?? [])) {
     app.get(`/api/v1/agent${ability.path}`, publicHandler(async (req, reply) => {
-      strictQuery(req, []);
-      return markdown(req, reply, await ability.answer(), ability.etagPrefix, ability.cacheControl);
+      const args = strictQuery(req, ability.query ?? []);
+      try {
+        return markdown(req, reply, await ability.answer(args), ability.etagPrefix, ability.cacheControl);
+      } catch (error) {
+        const e = error as { status?: number; code?: string; message?: string };
+        if (typeof e.status === "number" && typeof e.code === "string") {
+          return sendProblem(req, reply, { status: e.status, code: e.code, detail: e.message ?? e.code, cacheControl: "public, max-age=60" });
+        }
+        throw error;
+      }
     }));
   }
 }

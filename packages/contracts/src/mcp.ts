@@ -13,7 +13,19 @@ export const MCP_TOOL_NAMES = {
   daily: mcpToolName("get_daily"),
   weekly: mcpToolName("get_weekly"),
   monthly: mcpToolName("get_monthly"),
+  /** Module ask: explain_selection (not an engine-registered tool). */
+  explainSelection: mcpToolName("explain_selection"),
+  /** Module ask: explain_hot (not an engine-registered tool). */
+  explainHot: mcpToolName("explain_hot"),
 } as const;
 
-/** The engine's tools, in the order the server lists them. */
-export const MCP_TOOLS = Object.values(MCP_TOOL_NAMES).map((name) => ({ name }));
+/** The engine's tools, in the order the server lists them (module tools are added separately). */
+export const MCP_TOOLS = [
+  { name: MCP_TOOL_NAMES.latest },
+  { name: MCP_TOOL_NAMES.search },
+  { name: MCP_TOOL_NAMES.hot },
+  { name: MCP_TOOL_NAMES.story },
+  { name: MCP_TOOL_NAMES.daily },
+  { name: MCP_TOOL_NAMES.weekly },
+  { name: MCP_TOOL_NAMES.monthly },
+];

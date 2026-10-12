@@ -1,0 +1,21 @@
+{
+  "name": "@aihot/ask",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./module": "./module.ts",
+    "./server": "./server.ts",
+    "./web": "./web.tsx"
+  },
+  "dependencies": {
+    "@aihot/backend": "*",
+    "@aihot/contracts": "*",
+    "@aihot/site": "*",
+    "fastify": "5.12.5",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-router": "*"
+  }
+}
