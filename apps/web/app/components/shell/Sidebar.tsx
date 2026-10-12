@@ -25,7 +25,7 @@ function SideLink({ item, dot }: { item: NavItem; dot: boolean }) {
       to={item.to}
       prefetch="intent"
       aria-current={isActive ? "page" : undefined}
-      className={`relative flex h-10 items-center gap-2.5 rounded-control px-3 text-[14px] transition-colors duration-150 ${
+      className={`relative flex h-10 items-center gap-2.5 rounded-tile px-3 text-[14px] transition-colors duration-150 ${
         isActive
           ? "bg-accent-muted font-semibold text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:bg-accent"
           : "font-medium text-ink-4 hover:bg-surface-hover hover:text-ink"
@@ -65,7 +65,7 @@ export function Sidebar({ changelogVersion }: { changelogVersion: string | null 
             href={SITE.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="mx-1 flex h-[34px] items-center justify-center gap-1.5 rounded-control border border-line text-[12.5px] text-ink-4 transition-colors hover:bg-surface-hover hover:text-ink"
+            className="mx-1 flex h-[34px] items-center justify-center gap-1.5 rounded-full border border-line text-[12.5px] text-ink-4 transition-colors hover:bg-surface-hover hover:text-ink"
           >
             <IconGithub size={14} />
             GitHub 开源
