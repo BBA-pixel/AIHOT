@@ -3475,6 +3475,11 @@
             "type": "string",
             "format": "date-time"
           },
+          "timelineAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Site timeline / feed time used for windowing and ordering when by=timeline. Matches the website feed rail; may differ from publishedAt when an item entered the selected set later than its source publication time."
+          },
           "category": {
             "type": [
               "string",

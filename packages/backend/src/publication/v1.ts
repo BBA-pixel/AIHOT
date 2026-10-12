@@ -76,7 +76,9 @@ async function queryItems(query: V1ItemsQuery, now: Date): Promise<V1ItemsResult
       mode: query.mode, category: query.category, window: query.window, q: query.q, by: query.by,
       ordering: query.by === "published" ? "publishedAtDesc" : "timelineDesc",
     },
-    items: page.map(rowToV1),
+    // sort_at is the window/order key (selected→p.sort_at, all→p.timeline_at, by=published→published).
+    // Expose it as timelineAt so agents can filter "最近 N 小时" against the same clock as the 精选页.
+    items: page.map((row) => ({ ...rowToV1(row), timelineAt: row.sort_at.toISOString() })),
     page: {
       count: page.length,
       hasMore,

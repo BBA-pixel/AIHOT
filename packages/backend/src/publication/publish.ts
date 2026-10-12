@@ -97,6 +97,8 @@ export interface V1ItemPayload {
   links: { aihot: string; original: string };
   publishedAt: string | null;
   discoveredAt: string;
+  /** Site timeline / feed rail time (sort_at). Matches the 精选页 clock; may differ from publishedAt. */
+  timelineAt?: string;
   category: string | null;
   score: number | null;
   selected: boolean;

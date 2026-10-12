@@ -34,30 +34,39 @@ const categorySchema = z.enum(PUBLIC_API_CATEGORY_KEYS as unknown as [string, ..
 
 const SCHEMAS: Record<AskToolName, z.ZodType> = {
   get_latest: z.object({
-    window: z.enum(["24h", "7d"]).optional(),
-    mode: z.enum(["selected", "all"]).optional(),
+    window: z.enum(["24h", "7d"]).optional().describe("时间窗口：24h=过去24小时（默认），7d=最近7天。没有1小时参数；短窗口请取24h结果后按「站内时间」自行过滤。"),
+    mode: z.enum(["selected", "all"]).optional().describe("selected=精选（默认，与精选页一致）；all=全部公开动态。问精选时务必用 selected。"),
     category: categorySchema,
-    limit: z.number().int().min(1).max(30).optional(),
+    limit: z.number().int().min(1).max(30).optional().describe("最多返回条数，1–30，默认10。查「最近一小时」时可提到30以便过滤。"),
   }).strict(),
   search: z.object({
-    q: z.string().min(2).max(200),
-    window: z.enum(["24h", "7d"]).optional(),
+    q: z.string().min(2).max(200).describe("搜索词，2–200字。"),
+    window: z.enum(["24h", "7d"]).optional().describe("搜索窗口，默认7d；只看今天用24h。"),
     category: categorySchema,
-    limit: z.number().int().min(1).max(30).optional(),
+    limit: z.number().int().min(1).max(30).optional().describe("最多返回条数，1–30，默认10。"),
   }).strict(),
   get_hot_topics: z.object({
-    limit: z.number().int().min(1).max(10).optional(),
+    limit: z.number().int().min(1).max(10).optional().describe("热点条数，1–10，默认10。"),
   }).strict(),
   get_story: z.object({
-    public_id: z.string().min(1).max(128),
-    limit: z.number().int().min(1).max(50).optional(),
+    public_id: z.string().min(1).max(128).describe("事件公开 ID，须来自 get_hot_topics 返回值，不要猜测。"),
+    limit: z.number().int().min(1).max(50).optional().describe("时间线条数，1–50，默认20。"),
   }).strict(),
   explain_selection: z.object({
-    article_id: z.string().min(1).max(128),
+    article_id: z.string().min(1).max(128).describe("条目 ID（站内 /items/… 路径中的 id）。"),
   }).strict(),
   explain_hot: z.object({
-    public_id: z.string().min(1).max(128),
+    public_id: z.string().min(1).max(128).describe("事件公开 ID，须来自 get_hot_topics。"),
   }).strict(),
+};
+
+const ASK_TOOL_DESCRIPTIONS: Record<AskToolName, string> = {
+  get_latest: "查近期资讯（精选或全部）。默认 mode=selected、window=24h。无独立1小时窗口：先拉24h精选，再按结果「站内时间」（与精选页一致）过滤；不要只用原文发布时间。列表仅供浏览，不会登记为可引用「来源」。",
+  search: "按关键词站内搜索。先查精选，精选无结果时自动扩到全部公开动态。",
+  get_hot_topics: "查当前热点榜（多信源同时讨论的事件）。",
+  get_story: "查某一热点事件的来龙去脉与报道时间线；public_id 必须来自 get_hot_topics。",
+  explain_selection: "解释某条目为何入选精选（评分与门槛说明）。",
+  explain_hot: "解释某事件为何上热点榜。",
 };
 
 /** OpenAI tool specs for the model (short names). */
@@ -66,7 +75,7 @@ export function askToolSpecs() {
     type: "function" as const,
     function: {
       name,
-      description: ASK_TOOL_LABELS_ZH[name],
+      description: ASK_TOOL_DESCRIPTIONS[name],
       parameters: z.toJSONSchema(SCHEMAS[name], { io: "input" }) as Record<string, unknown>,
     },
   }));
@@ -140,7 +149,7 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
         // Timeline / recent-list dumps are browsing context for the model, not query-matched
         // hits. Do not register them as citeable 来源 (avoids empty-search fallbacks showing
         // unrelated DOOM/MTG/etc. items under「来源 N」).
-        return { ok: true, name: tool, text, structured: { count }, evidence: [] };
+        return { ok: true, name: tool, text, structured: { count, mode: p.mode }, evidence: [] };
       }
       case "search": {
         const a = parsed.data as { q: string; window?: AgentWindow; category?: string | null; limit?: number };
@@ -274,7 +283,8 @@ export function friendlyStepSummary(exec: ToolExecOk): string {
   const count = typeof exec.structured.count === "number" ? exec.structured.count : exec.evidence.length;
   // get_latest is an unfiltered recent dump, not query-matched hits.
   if (exec.name === "get_latest") {
-    return count > 0 ? `拉取近期公开动态 ${count} 条` : "暂无结果";
+    const scope = exec.structured.mode === "all" ? "公开动态" : "精选";
+    return count > 0 ? `拉取近期${scope} ${count} 条` : "暂无结果";
   }
   const n = exec.evidence.length;
   if (n > 0) return `找到 ${n} 条相关资料`;
