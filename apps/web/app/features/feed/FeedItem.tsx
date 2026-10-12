@@ -37,7 +37,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
   const tags = showTags ? item.tags.slice(0, 3) : [];
 
   return (
-    <article className="relative min-w-0 lg:card lg:card-hover lg:px-[18px] lg:pb-[14px] lg:pt-[15px]" data-item-id={item.id}>
+    <article className="group/card card-focus relative min-w-0 lg:card lg:card-hover lg:press lg:px-[18px] lg:pb-[14px] lg:pt-[15px]" data-item-id={item.id}>
       <header className="flex min-h-[22px] items-center gap-1.5 text-[12.5px] leading-[18px] text-ink-4 lg:min-h-[18px] lg:gap-2">
         <SourceLine item={item} className="text-ink-4" />
         {at && (
@@ -73,7 +73,8 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
         <>
           <h3 className={`mt-1.5 line-clamp-2 text-[17px] font-[650] leading-[1.5] lg:mt-2 lg:line-clamp-none lg:leading-[1.55] ${read ? "text-ink-4" : "text-ink"}`}>
             <IntentLink viewTransition to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
-              {item.title}
+              <span className="link-underline">{item.title}</span>
+              <span aria-hidden="true" className="ml-1 hidden translate-x-0 text-accent opacity-0 transition-[opacity,transform] duration-[var(--dur-2)] ease-[var(--ease-out-quart)] group-hover/card:translate-x-[3px] group-hover/card:opacity-100 lg:inline-block">→</span>
             </IntentLink>
           </h3>
           {item.summary && <p className="mt-1 line-clamp-2 text-[14.5px] leading-[1.7] text-ink-3 lg:mt-2 lg:line-clamp-3 lg:text-[15px] lg:leading-[1.75]">{item.summary}</p>}

@@ -167,6 +167,21 @@ function StepStatusMark({ status }: { status: Step["status"] }) {
   return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-hot" aria-hidden />;
 }
 
+/** The waiting line before the answer starts, built only from real step and evidence events. */
+function thinkingHint(steps: Step[], evidence: Evidence[], status: string): string {
+  const running = steps.filter((s) => s.status === "running");
+  const done = steps.filter((s) => s.status !== "running").length;
+  const n = evidence.length;
+  if (running.length > 0) {
+    const what = running.map((s) => toolLabel(s.tool, s.labelZh)).join("、");
+    return n > 0 ? `正在${what}… 已找到 ${n} 个来源` : `正在${what}…`;
+  }
+  if (n > 0) return `已找到 ${n} 个来源，正在整理回答…`;
+  if (done > 0) return `已完成 ${done} 步检索，正在整理回答…`;
+  if (status === "queued") return "排队中，马上开始…";
+  return "正在理解问题…";
+}
+
 function ToolSteps({ steps }: { steps: Step[] }) {
   const running = steps.some((s) => s.status === "running");
   const names = steps.map((s) => toolLabel(s.tool, s.labelZh));
@@ -176,7 +191,7 @@ function ToolSteps({ steps }: { steps: Step[] }) {
   return (
     <div className="mb-3 rounded-control border border-line-soft bg-bg-sunk/60">
       <div className="flex items-center gap-2 px-3 py-2 text-[12.5px] tracking-wide text-ink-3">
-        <span className="font-medium text-ink-2">{header}</span>
+        <span className={`font-medium ${running ? "text-shimmer" : "text-ink-2"}`}>{header}</span>
       </div>
       <ul className="flex flex-wrap gap-1.5 border-t border-line-soft px-3 py-2.5">
         {steps.map((s) => {
@@ -543,9 +558,11 @@ export default function AskPage() {
                 ) : b.text ? (
                   <SafeAnswer text={b.text} evidence={b.evidence} streaming={b.streaming} />
                 ) : (
-                  <p className="flex items-center gap-2 text-[13.5px] text-ink-4">
-                    <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden />
-                    {b.streaming ? "正在整理站内线索…" : "…"}
+                  <p className="flex items-center gap-2 text-[13.5px] text-ink-4" role="status" aria-live="polite">
+                    <span className="inline-flex gap-[3px]" aria-hidden>
+                      {[0, 1, 2].map((d) => <span key={d} className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" style={{ animationDelay: `${d * 160}ms` }} />)}
+                    </span>
+                    {b.streaming ? <span className="text-shimmer">{thinkingHint(b.steps, b.evidence, b.status)}</span> : "…"}
                   </p>
                 )}
                 {b.evidence.length > 0 && !b.contentInvalidated && <Citations evidence={b.evidence} />}
