@@ -39,6 +39,7 @@ let web: WebServer;
 let origin: string;
 let chrome: Browser;
 let failNextPage = false;
+let boundaryRequests = 0;
 
 const api = createServer((req, res) => {
   const url = new URL(req.url!, "http://local");
@@ -52,6 +53,11 @@ const api = createServer((req, res) => {
   if (p === "/api/site/timeline") {
     const tag = url.searchParams.get("tag");
     const cursor = url.searchParams.get("cursor");
+    if (tag === "boundary") {
+      boundaryRequests++;
+      const n = cursor ? Number(cursor) : 1;
+      return res.end(JSON.stringify({ filters: { channel: "all", category: null, tag }, cards: [card(`boundary-${n}`, `批次 ${n}`)], nextCursor: n < 5 ? String(n + 1) : null, hot: null, dayCounts: { "2026-10-04": 5 } }));
+    }
     if (tag === "group") {
       return res.end(JSON.stringify({ filters: { channel: "all", category: null, tag: "group" }, cards: [groupCard, readGroupCard], nextCursor: null, hot: null, dayCounts: { "2026-10-04": 2 } }));
     }
@@ -176,4 +182,25 @@ test("with everything read and no more pages, the filter says so instead of look
   } finally {
     await context.close();
   }
+});
+
+test("all-read pages stop at the automatic bound and can continue manually without changing local records", async () => {
+  const context = await readerWith(["boundary-1", "boundary-2", "boundary-3", "boundary-4"]);
+  const page = await context.newPage();
+  boundaryRequests = 0;
+  try {
+    await page.goto(`${origin}/?tag=boundary`);
+    const raw = await page.evaluate(() => localStorage.getItem("aihot-read-items"));
+    await page.getByRole("button", { name: "只看未读" }).click();
+    const more = page.getByRole("button", { name: "加载更多", exact: true });
+    await expect(more).toBeVisible();
+    assert.equal(boundaryRequests, 3, "the unread filter respects the existing three-batch limit");
+    await more.click();
+    await expect(more).toBeVisible();
+    await expect(page.getByText("这批精选都读过了", { exact: true })).toBeVisible();
+    await more.click();
+    await expect(page.getByRole("link", { name: "批次 5", exact: true })).toBeVisible();
+    assert.equal(boundaryRequests, 5);
+    assert.equal(await page.evaluate(() => localStorage.getItem("aihot-read-items")), raw);
+  } finally { await context.close(); }
 });
