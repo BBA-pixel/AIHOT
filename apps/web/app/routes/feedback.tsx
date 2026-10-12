@@ -169,7 +169,7 @@ export default function FeedbackPage() {
           <p className="mt-2 text-[14px] text-ink-3">
             反馈编号 <span className="mono font-semibold text-ink">#{state.id}</span>，需要回复时我们会引用这个编号。
           </p>
-          <Link to="/" className="mt-8 inline-flex h-10 items-center rounded-full bg-ink px-6 text-[14px] font-medium text-bg transition-opacity hover:opacity-90">
+          <Link to="/" className="mt-8 inline-flex h-10 items-center rounded-control bg-ink px-6 text-[14px] font-medium text-bg transition-opacity hover:opacity-90">
             回到精选
           </Link>
         </div>
@@ -285,7 +285,7 @@ export default function FeedbackPage() {
           <button
             type="submit"
             disabled={!canSend}
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-full bg-accent px-6 text-[14px] font-medium text-accent-contrast transition-[background-color,opacity] hover:bg-accent-ink disabled:bg-line-strong disabled:text-ink-4 sm:self-auto"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-control bg-accent px-6 text-[14px] font-medium text-accent-contrast transition-[background-color,opacity] hover:bg-accent-ink disabled:bg-line-strong disabled:text-ink-4 sm:self-auto"
           >
             {state.kind === "sending" && <RingMark className="size-4" spinning />}
             发送反馈

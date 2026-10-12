@@ -47,7 +47,7 @@ export function DayList({ items, todayCount = null, headerAside }: { items: Feed
 export function Pagination({ page, pageCount, href }: { page: number; pageCount: number; href: (p: number) => string }) {
   if (pageCount <= 1) return null;
   const pages = [...new Set([1, pageCount, page - 2, page - 1, page, page + 1, page + 2].filter((p) => p >= 1 && p <= pageCount))].sort((a, b) => a - b);
-  const btn = "inline-flex h-9 min-w-9 items-center justify-center rounded-full px-2.5 text-[13px] transition-colors";
+  const btn = "inline-flex h-9 min-w-9 items-center justify-center rounded-control px-2.5 text-[13px] transition-colors";
   return (
     <nav aria-label="分页" className="mt-6 flex flex-wrap items-center justify-center gap-3 lg:gap-1">
       {page > 1 && (

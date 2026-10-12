@@ -324,12 +324,12 @@ function FeedEnd({ loading, error, hasMore, manual, empty, onMore }: { loading: 
           <RingMark className="size-4 text-accent" spinning /> 正在加载
         </span>
       ) : error ? (
-        <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[13px] text-hot hover:bg-hot-soft">
+        <button type="button" onClick={onMore} className="h-9 rounded-control border border-hot/30 px-4 text-[13px] text-hot hover:bg-hot-soft">
           加载失败，点此重试
         </button>
       ) : hasMore ? (
         manual && (
-          <button type="button" onClick={onMore} className="h-9 rounded-full border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink">
+          <button type="button" onClick={onMore} className="h-9 rounded-control border border-line-strong bg-surface px-5 text-[13px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink">
             加载更多
           </button>
         )
