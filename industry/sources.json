@@ -1,5 +1,5 @@
 {
-  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。产品焦点：Steam 游戏。媒体信源保留；手游/端游 F2P 官源（王者、LoL、米游社原神/星铁、永劫、和平精英、LoL Esports）已 enabled:false；四款种子 Steam 游戏各有一条 store news RSS（app/{appid}），并补上可抓的开发商/发行商一手源（Mega Crit 新闻 RSS、Larian 新闻列表）；仍带标题规则的停用官源配置保留，便于日后重开；平台/Steam/厂商官源不套用该标题规则。 热榜（B站热搜、贴吧热议）以 hot_signal 接入，只给已有事件加分。",
+  "$comment": "示范信源：首次启动时导入（scripts/seed.ts），已存在的不会被覆盖。之后在后台“信源”里新建、修改和暂停。字段说明见 docs/customize.md。产品焦点：Steam 游戏。媒体信源保留；手游/端游 F2P 官源（王者、LoL、米游社原神/星铁、永劫、和平精英、LoL Esports）已 enabled:false；四款种子 Steam 游戏各有一条 store news RSS（app/{appid}），并补上可抓的开发商/发行商一手源（Mega Crit 新闻 RSS、Larian 新闻列表）；另按产品点名启用《无畏契约》国服官网新闻（非 Steam，Riot/腾讯）。仍带标题规则的停用官源配置保留，便于日后重开；平台/Steam/厂商官源不套用该标题规则。热榜（B站热搜、贴吧热议）以 hot_signal 接入，只给已有事件加分。",
   "sources": [
     {
       "id": "rss-gcores",
@@ -857,6 +857,121 @@
         "官方",
         "CS2",
         "电竞"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "json-val-news",
+      "name": "无畏契约官网·新闻公告",
+      "kind": "json_list",
+      "config": {
+        "url": "https://apps.game.qq.com/cmc/cross?serviceId=329&source=val_gw&tagids=125139&typeids=1&chanid=6700&start=0&limit=15&withtop=yes",
+        "itemsPath": "data.items",
+        "titlePaths": [
+          "sTitle"
+        ],
+        "publishedAtPath": "sIdxTime",
+        "publishedAtUtcOffset": "+08:00",
+        "externalIdPath": "iDocID",
+        "urlTemplate": "https://val.qq.com/newsdetails.html?docid={iDocID}",
+        "ingestNoiseFilter": {
+          "keepIfMatches": [
+            "版本更新",
+            "版本前瞻",
+            "新版本",
+            "更新说明",
+            "补丁",
+            "特工",
+            "地图",
+            "资料片",
+            "停服",
+            "停运",
+            "关服",
+            "赛季",
+            "定档",
+            "公测",
+            "上线时间",
+            "dlc",
+            "新角色",
+            "新英雄",
+            "平衡",
+            "联动",
+            "回归",
+            "无畏契约",
+            "VALORANT",
+            "Valorant",
+            "VCT",
+            "电竞"
+          ],
+          "dropMarkersTitleOnly": [
+            "封禁",
+            "活动",
+            "皮肤",
+            "装扮",
+            "祈愿",
+            "跃迁",
+            "召唤",
+            "周免",
+            "礼包",
+            "限时销售",
+            "夜市",
+            "商城",
+            "涂鸦",
+            "特权体验",
+            "网吧"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 8,
+          "initialBackfillMonths": 1
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "valorant",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方",
+        "无畏契约",
+        "射击"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
+      "id": "web-playvalorant-news",
+      "name": "VALORANT 官方新闻（繁中）",
+      "kind": "web_list",
+      "config": {
+        "url": "https://playvalorant.com/zh-tw/news/",
+        "baseUrl": "https://playvalorant.com",
+        "itemSelector": "a[href*=\"/zh-tw/news/\"]",
+        "allowUrlPrefixes": [
+          "https://playvalorant.com/zh-tw/news/game-updates/",
+          "https://playvalorant.com/zh-tw/news/announcements/",
+          "https://playvalorant.com/zh-tw/news/esports/",
+          "https://playvalorant.com/zh-tw/news/dev/"
+        ],
+        "detail": {
+          "maxFetches": 8,
+          "titleSelector": "h1",
+          "publishedAtSelector": "time"
+        },
+        "_aihot": {
+          "initialBackfillLimit": 8,
+          "initialBackfillMonths": 1
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "valorant",
+      "participation_mode": "editorial",
+      "interval_minutes": 120,
+      "tags": [
+        "官方",
+        "无畏契约",
+        "射击",
+        "繁中"
       ],
       "site_fulltext": false,
       "syndicate_fulltext": false

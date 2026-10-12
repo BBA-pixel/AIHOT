@@ -50,6 +50,13 @@
       "steamAppId": 1086940
     },
     {
+      "slug": "valorant",
+      "name": "无畏契约",
+      "group": "company",
+      "entityId": "valorant",
+      "definition": "《无畏契约》（VALORANT）的版本更新、新特工与地图、平衡调整、国服运营与电竞赛事相关新闻。非 Steam 发行（Riot Client / 国服腾讯）；因产品点名纳入主题，与站点 Steam 焦点并存。"
+    },
+    {
       "slug": "mobile",
       "name": "手游",
       "group": "field",

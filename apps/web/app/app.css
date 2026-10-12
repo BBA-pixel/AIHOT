@@ -6,7 +6,7 @@
 @source "../../../modules/*/{web.tsx,web/**}";
 
 /* ---------------------------------------------------------------------------
-   Design tokens: GAMEHOT ink-copper dark / porcelain light magazine.
+   Design tokens: GAMEHOT ink-copper dark / porcelain light magazine. Fonts: Playfair+Noto Serif SC (display), Inter+Noto Sans SC/PingFang (body).
    Hairline borders, upstream AIHOT radii, copper/ink-gold accent — no neon,
    purple gradients, or glassmorphism. Spec: docs/visual-tokens.md
    --------------------------------------------------------------------------- */
@@ -16,8 +16,8 @@
 @custom-variant touch (@media (hover: none));
 
 @theme {
-  --font-sans: "Inter", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
-  --font-display: "Playfair Display", "Noto Serif SC", "Source Serif 4", "Songti SC", "STSong", ui-serif, Georgia, serif;
+  --font-sans: "Inter", "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "HarmonyOS Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: "Playfair Display", "Noto Serif SC", "Songti SC", "STSong", ui-serif, serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   /* Semantic colours — components use these names; values come from :root / [data-theme]. */
