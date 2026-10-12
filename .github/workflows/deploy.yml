@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Deploy over SSH
-        uses: appleboy/ssh-action@da2d86959038ba1bc03297ae8b27bd34d0e1c772 # v1.2.2
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
