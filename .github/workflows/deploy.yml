@@ -1,0 +1,41 @@
+# Deploy to the GAMEHOT VPS on every push to main.
+# Secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (ed25519 private key).
+# Server path: /opt/gamehot  — .env is never overwritten.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@da2d86959038ba1bc03297ae8b27bd34d0e1c772 # v1.2.2
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          command_timeout: 40m
+          script: |
+            set -euo pipefail
+            cd /opt/gamehot
+            git fetch origin main
+            git reset --hard origin/main
+            # Keep existing .env; rebuild and restart (China npm mirror)
+            sudo docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+            sudo docker compose stop api worker web
+            sudo docker compose run --rm setup
+            sudo docker compose up -d
+            sudo docker compose ps
