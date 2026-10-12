@@ -88,12 +88,16 @@ test("HTML and navigation share freshness; cookies do not personalize public res
   assert.equal(html.status, 200);
   assert.equal(html.headers.get("X-Accel-Expires"), `@${deadline}`);
   assert.match(await html.text(), /精选/);
-  const plain = await fetch(`${origin}/about.data`);
-  const signedIn = await fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; reader=returning" } });
+  // Fetch together so cookie vs plain are comparable; strip expiresAt (second-granularity) which can tick between responses.
+  const [plain, signedIn] = await Promise.all([
+    fetch(`${origin}/about.data`),
+    fetch(`${origin}/about.data?_routes=root`, { headers: { cookie: "admin_session=private; reader=returning" } }),
+  ]);
   assert.match(plain.headers.get("Cache-Control")!, /^public,/);
   assert.match(plain.headers.get("X-Accel-Expires")!, /^@\d+$/);
   assert.equal(signedIn.headers.get("Set-Cookie"), null);
-  assert.equal(await signedIn.text(), await plain.text());
+  const stripExpiry = (body: string) => body.replace(/,"expiresAt",\d+/g, ',"expiresAt",0');
+  assert.equal(stripExpiry(await signedIn.text()), stripExpiry(await plain.text()));
   assert.ok(apiCookies.every((cookie) => !cookie));
 });
 
