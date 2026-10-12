@@ -138,6 +138,29 @@ export default function App() {
   );
 }
 
+
+function RetryButton({ to }: { to: string }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Link
+      reloadDocument
+      to={to}
+      onClick={() => setBusy(true)}
+      className={buttonClass("primary")}
+      aria-busy={busy || undefined}
+    >
+      {busy ? (
+        <span className="inline-flex items-center gap-2">
+          <span className="inline-block size-3.5 animate-spin rounded-full border-2 border-accent-contrast/30 border-t-accent-contrast" aria-hidden />
+          正在重试…
+        </span>
+      ) : (
+        "重新加载"
+      )}
+    </Link>
+  );
+}
+
 export function ErrorBoundary() {
   useThemeSync();
   const error = useRouteError();
@@ -155,9 +178,7 @@ export function ErrorBoundary() {
           {notFound ? "你访问的页面不存在，或内容已不再公开。" : "页面暂时无法显示，请重新加载后再试。"}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-          {!notFound && <Link reloadDocument to={pathname + search + hash} className={buttonClass("primary")}>
-            重新加载
-          </Link>}
+          {!notFound && <RetryButton to={pathname + search + hash} />}
           <Link reloadDocument to="/" className={buttonClass(notFound ? "primary" : "secondary")}>
             回到精选
           </Link>

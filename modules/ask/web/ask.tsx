@@ -96,7 +96,7 @@ function SafeAnswer({ text, evidence, streaming }: { text: string; evidence: Evi
   const safe = useMemo(() => sanitizeAskMarkdown(text, allowed), [text, allowed]);
   // Streaming: keep as plain-ish text with soft breaks; still unlink unregistered.
   if (streaming) {
-    return <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-ink">{safe}<span className="ml-0.5 inline-block h-4 w-[2px] translate-y-[2px] animate-pulse bg-accent/70" aria-hidden /></div>;
+    return <div className="whitespace-pre-wrap break-words text-[15px] leading-7 text-ink">{safe}<span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] animate-pulse bg-accent align-text-bottom" aria-hidden /></div>;
   }
   // Simple paragraph split; links only when allowlisted.
   const parts = safe.split(/(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s]+)/g);

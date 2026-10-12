@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Link, useLocation, useRevalidator } from "react-router";
 import { tabs, type TabKey } from "./nav";
 import { noteScreen, rememberedTab, useScreen } from "./screens";
@@ -25,12 +25,29 @@ export function TabBar({ changelogVersion }: { changelogVersion: string | null }
   const last = useRef<TabKey | undefined>(undefined);
   const restored = useSyncExternalStore(subscribe, () => rememberedTab(key), serverTab);
   const active = screen.tab ?? restored ?? last.current ?? screen.home;
+  const grid = useRef<HTMLDivElement>(null);
+  const [capsule, setCapsule] = useState({ x: 0, w: 0, on: false });
+  const [bump, setBump] = useState<TabKey | null>(null);
   useIsoLayoutEffect(() => {
-    // Do not overwrite a saved entry with the server fallback before hydration reads this browser's tab.
     if (restored === null) return;
     last.current = active;
     noteScreen(screen.name, key, active);
   }, [active, key, screen.name, restored]);
+  useIsoLayoutEffect(() => {
+    const g = grid.current;
+    if (!g) return;
+    const place = () => {
+      const a = g.querySelector<HTMLElement>('a[aria-current="page"]');
+      if (!a) {
+        setCapsule((c) => ({ ...c, on: false }));
+        return;
+      }
+      setCapsule({ x: a.offsetLeft + a.offsetWidth * 0.15, w: a.offsetWidth * 0.7, on: true });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [active, pathname]);
   if (screen.toolbar) return null;
   const items = tabs();
   return (
@@ -38,7 +55,16 @@ export function TabBar({ changelogVersion }: { changelogVersion: string | null }
       aria-label="底部导航"
       className="fixed inset-x-0 bottom-0 z-40 bg-surface/90 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] shadow-[0_-1px_0_var(--line)] backdrop-blur-xl backdrop-saturate-150 lg:hidden"
     >
-      <div className={`mx-auto grid h-[50px] max-w-[640px] ${COLUMNS[items.length]}`}>
+      <div ref={grid} className={`relative mx-auto grid h-[50px] max-w-[640px] ${COLUMNS[items.length]}`}>
+        <span
+          aria-hidden="true"
+          className="tab-capsule pointer-events-none absolute top-[6px] h-[38px] rounded-full bg-accent-muted opacity-0"
+          style={{
+            transform: `translateX(${capsule.x}px)`,
+            width: capsule.w,
+            opacity: capsule.on ? 1 : 0,
+          }}
+        />
         {items.map((t) => {
           const on = t.key === active;
           const Icon = t.icon;
@@ -50,6 +76,8 @@ export function TabBar({ changelogVersion }: { changelogVersion: string | null }
               aria-current={on ? "page" : undefined}
               viewTransition={on && pathname !== t.to}
               onClick={(event) => {
+                setBump(t.key);
+                window.setTimeout(() => setBump((b) => (b === t.key ? null : b)), 360);
                 if (!on || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                 if (pathname !== t.to) return markBack();
                 event.preventDefault();
@@ -60,7 +88,7 @@ export function TabBar({ changelogVersion }: { changelogVersion: string | null }
                   void revalidator.revalidate();
                 }
               }}
-              className={`relative flex flex-col items-center justify-center gap-[2px] text-[10.5px] transition-colors ${on ? "font-semibold text-accent" : "text-ink-3 active:text-ink"}`}
+              className={`relative z-10 flex flex-col items-center justify-center gap-[2px] text-[10.5px] transition-colors ${on ? "font-semibold text-accent" : "text-ink-3 active:text-ink"} ${bump === t.key ? "tab-bump" : ""}`}
             >
               <Icon size={23} />
               <span>{t.label}</span>

@@ -26,6 +26,7 @@ import { takePreview } from "../features/item/preview";
 import { IconArrowLeft, IconCopy, IconDownload, IconExternal, IconImage, IconMenu, IconMore, IconShare } from "../components/icons";
 import { BarButton, PhoneBar } from "../components/shell/PhoneBar";
 import { isPhone, type Screen } from "../components/shell/screens";
+import { vtName } from "../lib/vt";
 
 export const handle: Screen = { home: "featured", toolbar: true };
 export { pageHeaders as headers } from "../lib/api.server";
@@ -83,7 +84,11 @@ function ReadingProgress() {
     const update = () => {
       frame = 0;
       const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (ref.current) ref.current.style.transform = `scaleX(${max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0})`;
+      if (ref.current) {
+        const p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
+        ref.current.style.transform = `scaleX(${p})`;
+        ref.current.classList.toggle("is-on", p > 0.01 && p < 0.995);
+      }
     };
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(update);
@@ -97,7 +102,7 @@ function ReadingProgress() {
       window.removeEventListener("resize", schedule);
     };
   }, []);
-  return <div ref={ref} aria-hidden="true" className="fixed inset-x-0 top-0 z-50 h-[2px] origin-left scale-x-0 bg-accent transition-transform duration-150 ease-out" />;
+  return <div ref={ref} aria-hidden="true" className="reading-progress" />;
 }
 
 /** An outline link: a plain click scrolls in place (above); modifier clicks keep the browser's behaviour. */
@@ -190,7 +195,7 @@ function ItemPreview({ preview }: { preview: FeedItemSummary }) {
             </span>
           )}
         </div>
-        {!isX && <h1 data-page-title="" className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink">{preview.title}</h1>}
+        {!isX && <h1 data-page-title="" className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink" style={{ viewTransitionName: vtName("title", preview.id) }}>{preview.title}</h1>}
         {preview.summary && (
           <section className={isX ? "mt-4" : "mt-7"}>
             <div className="mb-2 text-[12px] font-semibold text-accent">{isX && preview.summary.replace(/\s+/g, " ").trim() === preview.title ? "原文" : "AI 导读"}</div>
@@ -487,7 +492,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
               </span>
             )}
           </div>
-          {!isX && <h1 data-page-title="" className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]">{item.title}</h1>}
+          {!isX && <h1 data-page-title="" className="text-[26px] font-bold leading-[1.38] tracking-[-0.01em] text-ink lg:text-[32px] lg:leading-[1.34] xl:text-[36px] xl:leading-[1.3]" style={{ viewTransitionName: vtName("title", item.id) }}>{item.title}</h1>}
           {!isX && item.originalTitle && <p className="mt-2.5 text-[14px] leading-relaxed text-ink-4">{item.originalTitle}</p>}
 
           {item.summary && (!isX || item.summary.replace(/\s+/g, " ").trim() !== item.title) && (

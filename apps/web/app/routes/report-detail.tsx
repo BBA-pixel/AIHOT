@@ -8,6 +8,7 @@ import { pageMeta, reportLd, titled } from "../lib/seo";
 import { beijingDate } from "@aihot/contracts/time";
 import { ReportLayout } from "../features/report/ReportLayout";
 import { ReportPaper, reportOutline } from "../features/report/ReportPaper";
+import { ReadingProgress } from "../components/ui/ReadingProgress";
 import { KIND_LABEL, feedLink, kindFromPath } from "../features/report/format";
 import type { Screen } from "../components/shell/screens";
 
@@ -51,6 +52,7 @@ export default function ReportDetailPage() {
   const { report, index, today } = useLoaderData<typeof loader>();
   return (
     <ReportLayout kind={report.kind} index={index} current={report.key} today={today} outline={reportOutline(report)}>
+      <ReadingProgress />
       <ReportPaper report={report} index={index} />
     </ReportLayout>
   );

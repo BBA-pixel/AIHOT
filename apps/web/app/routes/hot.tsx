@@ -11,10 +11,12 @@ import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
 import { Faces } from "../features/hot/Faces";
+import { onCardSpotlightMove } from "../lib/spotlight";
 import { Ticker } from "../components/ui/Ticker";
 import { Delta } from "../features/hot/Delta";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";
+import { vtName } from "../lib/vt";
 
 export const handle: Screen = { tab: "hot", name: "热点" };
 export { pageHeaders as headers } from "../lib/api.server";
@@ -108,9 +110,9 @@ function HeatPanel({ e }: { e: HotEntryView }) {
 function Lead({ e }: { e: HotEntryView }) {
   const panel = !e.cover && e.spark.filter((v) => v !== null).length >= 3;
   return (
-    <article className="card card-hover group relative flex flex-col overflow-hidden p-5 sm:p-6">
+    <article className="card card-hover card-spotlight group relative flex flex-col overflow-hidden p-5 sm:p-6" onMouseMove={onCardSpotlightMove} style={{ viewTransitionName: vtName("hot", String(e.rank)) }}>
       <div className="flex items-center gap-2.5">
-        <span className={`mono text-[12px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
+        <span className={`rank-editorial rank-top text-[13px] font-bold tracking-[0.14em] sm:text-[14px] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
         <Badges e={e} />
         <Delta trend={e.trend} pct={e.trendPct} className="ml-auto" />
       </div>
@@ -160,9 +162,9 @@ function Lead({ e }: { e: HotEntryView }) {
 /** No. 2 and 3: the same card, smaller, without the picture. */
 function Runner({ e }: { e: HotEntryView }) {
   return (
-    <article className="card card-hover group relative flex flex-col px-5 py-4">
+    <article className="card card-hover card-spotlight group relative flex flex-col px-5 py-4" onMouseMove={onCardSpotlightMove} style={{ viewTransitionName: vtName("hot", String(e.rank)) }}>
       <div className="flex items-center gap-2.5">
-        <span className={`mono text-[12px] font-bold tracking-[0.16em] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
+        <span className={`rank-editorial rank-top text-[13px] font-bold tracking-[0.14em] sm:text-[14px] ${rankColor(e.rank)}`}>NO.{pad(e.rank)}</span>
         <Badges e={e} />
         <Delta trend={e.trend} pct={e.trendPct} className="ml-auto" />
       </div>
@@ -190,8 +192,8 @@ function Runner({ e }: { e: HotEntryView }) {
 /** No. 4–10: a row each, with a line of the digest, faces, the day of heat and the index. */
 function Row({ e }: { e: HotEntryView }) {
   return (
-    <li className="group relative grid grid-cols-[30px_minmax(0,1fr)] items-start gap-x-3 px-4 py-3 transition-colors hover:bg-bg-sunk/70 sm:px-5 lg:grid-cols-[44px_minmax(0,1fr)_auto_104px_76px] lg:items-center lg:gap-x-6 lg:px-6 lg:py-3.5 dark:hover:bg-bg-muted/40">
-      <span className={`mono text-[16px] font-semibold leading-[24px] lg:text-[17px] ${rankColor(e.rank)}`} aria-label={`热度排名第 ${e.rank} 位`}>
+    <li className="group relative grid grid-cols-[30px_minmax(0,1fr)] items-start gap-x-3 px-4 py-3 transition-colors hover:bg-bg-sunk/70 sm:px-5 lg:grid-cols-[44px_minmax(0,1fr)_auto_104px_76px] lg:items-center lg:gap-x-6 lg:px-6 lg:py-3.5 dark:hover:bg-bg-muted/40" style={{ viewTransitionName: vtName("hot", String(e.rank)) }}>
+      <span className={`mono text-[16px] font-semibold leading-[24px] tabular-nums lg:text-[17px] ${e.rank <= 3 ? "rank-editorial rank-top" : ""} ${rankColor(e.rank)}`} aria-label={`热度排名第 ${e.rank} 位`}>
         {pad(e.rank)}
       </span>
       <div className="min-w-0">

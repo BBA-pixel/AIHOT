@@ -11,6 +11,7 @@ import { IntentLink } from "../components/ui/IntentLink";
 import { BrandMark } from "../components/BrandMark";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";
+import { vtName } from "../lib/vt";
 
 export const handle: Screen = { tab: "topics", name: "主题" };
 export { pageHeaders as headers } from "../lib/api.server";
@@ -58,17 +59,17 @@ function TopicCard({ t }: { t: TopicSummary }) {
     <IntentLink
       viewTransition
       to={`/topics/${t.slug}`}
-      className="group flex items-center gap-3 py-3 pl-4 pr-3 transition-colors active:bg-bg-sunk lg:card lg:card-hover lg:h-full lg:flex-col lg:items-stretch lg:gap-0 lg:px-5 lg:py-4 lg:active:bg-surface"
+      className="topic-card group flex items-center gap-3 py-3 pl-4 pr-3 transition-colors active:bg-bg-sunk lg:card lg:card-hover lg:h-full lg:flex-col lg:items-stretch lg:gap-0 lg:px-5 lg:py-4 lg:active:bg-surface"
     >
       {t.brand && (
-        <span className="flex shrink-0 lg:hidden">
+        <span className="topic-card-mark flex shrink-0 lg:hidden">
           <BrandMark brand={t.brand} size={30} />
         </span>
       )}
-      <span className="min-w-0 flex-1 lg:flex lg:flex-col">
-        <span className="flex items-center gap-2.5 text-[15.5px] font-semibold text-ink transition-colors group-hover:text-accent lg:text-[15px] lg:font-bold">
+      <span className="topic-card-body min-w-0 flex-1 lg:flex lg:flex-col">
+        <span className="flex items-center gap-2.5 text-[15.5px] font-semibold text-ink transition-colors group-hover:text-accent lg:text-[15px] lg:font-bold" style={{ viewTransitionName: vtName("topic", t.slug) }}>
           {t.brand && (
-            <span className="hidden lg:flex">
+            <span className="topic-card-mark hidden lg:flex">
               <BrandMark brand={t.brand} size={22} />
             </span>
           )}

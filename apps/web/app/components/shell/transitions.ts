@@ -1,8 +1,6 @@
-// Phones: a page opened one level deeper (an article, an event, a model, a sub-page of 我的) slides in from
-// the right over the page it came from, and the bar's back button slides it away again. Such links opt in
-// with React Router's `viewTransition`; the router then wraps the page change in a view transition, and
-// this marks on <html data-vt> which way it goes for app.css. The browser's own back (a swipe, a button)
-// keeps the browser's animation, and the desktop changes pages at once.
+// Phones: a page opened one level deeper slides in from the right. Desktop: a short fade (View
+// Transitions). Links opt in with React Router's `viewTransition`; this marks <html data-vt> for
+// app.css. Unsupported browsers keep an instant change. The browser's own back keeps its animation.
 import { useLayoutEffect } from "react";
 import { useLocation, useNavigationType } from "react-router";
 import { isPhone } from "./screens";
@@ -19,7 +17,15 @@ export function usePageTransition() {
   const { key } = useLocation();
   const type = useNavigationType();
   useLayoutEffect(() => {
-    document.documentElement.dataset.vt = !isPhone() ? "none" : goingBack ? "back" : type === "POP" ? "none" : "push";
+    document.documentElement.dataset.vt = isPhone()
+      ? goingBack
+        ? "back"
+        : type === "POP"
+          ? "none"
+          : "push"
+      : goingBack || type === "POP"
+        ? "fade"
+        : "fade";
     goingBack = false;
   }, [key]);
 }

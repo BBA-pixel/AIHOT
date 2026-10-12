@@ -718,6 +718,142 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reveal-on-scroll, .spark-draw, .ticker-col > span, .skeleton-shimmer::after { animation: none !important; }
+
+/* ---------------------------------------------------------------------------
+   GAMEHOT motion P1 — desktop fade VT, theme circle reveal, card spotlight, sticky day,
+   editorial ranks, topic hover, reading progress, tab capsule, empty state.
+   --------------------------------------------------------------------------- */
+
+/* Desktop page fade (phones keep the push/back slides above). */
+@media (min-width: 961px) {
+  :root[data-vt="fade"]::view-transition-old(root) {
+    animation: aihot-fade-out 160ms ease-in both;
+  }
+  :root[data-vt="fade"]::view-transition-new(root) {
+    animation: aihot-fade-in 200ms var(--ease-out-quart) both;
+  }
+}
+
+/* Theme switch: circular reveal from the tapped button (--theme-x/y/r). */
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+:root[data-vt="theme"]::view-transition-old(root) {
+  animation: none;
+  z-index: 1;
+}
+:root[data-vt="theme"]::view-transition-new(root) {
+  animation: aihot-theme-circle 480ms var(--ease-out-quart) both;
+  z-index: 2;
+}
+@keyframes aihot-theme-circle {
+  from { clip-path: circle(0px at var(--theme-x, 50%) var(--theme-y, 50%)); }
+  to { clip-path: circle(var(--theme-r, 100vmax) at var(--theme-x, 50%) var(--theme-y, 50%)); }
+}
+.theme-icon-spin svg { animation: aihot-icon-spin 460ms var(--ease-out-quart) both; }
+@keyframes aihot-icon-spin { from { transform: rotate(-40deg) scale(0.85); opacity: 0.4; } to { transform: none; opacity: 1; } }
+
+/* Shared-element titles: view-transition-name set inline on the title nodes (title-{id} / topic-{slug}). */
+::view-transition-group(*) { animation-duration: 280ms; animation-timing-function: var(--ease-out-quart); }
+
+/* Dark-theme card cursor spotlight: only fine pointers, only dark. */
+@media (hover: hover) and (pointer: fine) {
+  [data-theme="dark"] .card-spotlight {
+    position: relative;
+    --spot-x: 50%;
+    --spot-y: 50%;
+  }
+  [data-theme="dark"] .card-spotlight::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity var(--dur-2);
+    background: radial-gradient(420px circle at var(--spot-x) var(--spot-y), color-mix(in srgb, var(--accent) 14%, transparent), transparent 55%);
+  }
+  [data-theme="dark"] .card-spotlight:hover::before { opacity: 1; }
+  [data-theme="dark"] .card-spotlight > * { position: relative; z-index: 1; }
+}
+
+/* Sticky day header: hairline shadow while stuck. */
+.day-sticky {
+  box-shadow: 0 0 0 transparent;
+  transition: box-shadow var(--dur-2);
+}
+.day-sticky.is-stuck {
+  box-shadow: 0 1px 0 var(--line-strong);
+}
+
+/* Editorial rank for top 3. */
+.rank-editorial {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+[data-theme="dark"] .rank-editorial.rank-top {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 90%, #fff), var(--accent), color-mix(in srgb, var(--amber) 70%, var(--accent)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Topic card hover polish. */
+.topic-card {
+  transition: border-color var(--dur-2), transform var(--dur-2) var(--ease-out-quart), background-color var(--dur-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .topic-card:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line-strong));
+    transform: translateY(-2px);
+  }
+  .topic-card:hover .topic-card-body { transform: translateY(-1px); }
+  .topic-card:hover .topic-card-mark { transform: scale(1.06); }
+}
+.topic-card-body, .topic-card-mark { transition: transform var(--dur-2) var(--ease-out-quart); }
+
+/* Reading progress (article / report). */
+.reading-progress {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 55;
+  height: 2px;
+  transform-origin: left center;
+  background: var(--accent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-1);
+}
+.reading-progress.is-on { opacity: 1; }
+
+/* Phone tab bar: sliding capsule + icon bump. */
+.tab-capsule {
+  transition: transform var(--dur-3) var(--ease-out-quart), width var(--dur-3) var(--ease-out-quart), opacity var(--dur-2);
+}
+.tab-bump svg { animation: aihot-bump 320ms var(--ease-out-quart) both; }
+
+/* Sidebar icon micro-motion on hover (once). */
+.nav-ico { transition: transform 300ms var(--ease-spring); }
+.group\/nav:hover .nav-ico-flame { transform: rotate(-8deg) scale(1.08); }
+.group\/nav:hover .nav-ico-bolt { transform: translateY(-1px); }
+.group\/nav:hover .nav-ico-doc { transform: translateY(-1px) rotate(3deg); }
+.group\/nav:hover .nav-ico-grid { transform: scale(1.06); }
+.group\/nav:hover .nav-ico-heart { transform: scale(1.1); }
+.group\/nav:hover .nav-ico-plug { transform: rotate(12deg); }
+.group\/nav:hover .nav-ico-bookmark { transform: translateY(-1px); }
+.group\/nav:hover .nav-ico-ask { transform: rotate(-6deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-icon-spin svg, .tab-bump svg, .nav-ico { animation: none !important; transform: none !important; }
+  .topic-card:hover { transform: none; }
+  :root[data-vt="theme"]::view-transition-new(root),
+  :root[data-vt="fade"]::view-transition-old(root),
+  :root[data-vt="fade"]::view-transition-new(root) { animation: none !important; }
+}
   .text-shimmer { animation: none; color: var(--ink-3); background: none; }
   .press:active { transform: none; }
 }

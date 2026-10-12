@@ -71,12 +71,19 @@ export function MoreLink({ to, children }: { to: string; children: ReactNode }) 
   );
 }
 
-/** Quiet empty / unavailable state inside a card or list. */
-export function EmptyState({ title, children, action }: { title: ReactNode; children?: ReactNode; action?: ReactNode }) {
+/** Quiet empty / unavailable state inside a card or list. Brand mark + optional game-flavoured line. */
+export function EmptyState({ title, children, action, quip = "这里暂时没有新情报，先去打一把？" }: { title: ReactNode; children?: ReactNode; action?: ReactNode; quip?: string | null }) {
   return (
     <div className="flex flex-col items-center px-6 py-14 text-center">
+      <svg className="mb-4 size-12 text-accent/70" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+        <rect x="6" y="10" width="36" height="28" rx="6" stroke="currentColor" strokeWidth="1.75" />
+        <path d="M14 20h12M14 26h20M14 32h9" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+        <circle cx="36" cy="14" r="5" fill="var(--bg)" stroke="currentColor" strokeWidth="1.75" />
+        <path d="M36 12v4M34 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
       <div className="text-[15px] font-semibold text-ink-2">{title}</div>
       {children && <p className="mt-1.5 max-w-sm text-[13px] leading-relaxed text-ink-4">{children}</p>}
+      {quip && <p className="mt-2 max-w-sm text-[12.5px] text-ink-4/80">{quip}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   );

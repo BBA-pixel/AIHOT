@@ -26,7 +26,7 @@ export function DayList({ items, todayCount = null, headerAside }: { items: Feed
     <div>
       {days.map(({ day, items: list }, i) => (
         <section key={day} aria-label={day}>
-          <DayHeader day={day} today={today} count={day === today ? todayCount : null} aside={i === 0 ? headerAside : undefined} />
+          <DayHeader day={day} today={today} count={day === today ? todayCount : null} aside={i === 0 ? headerAside : undefined} index={i} />
           <ol className="lg:pt-1">
             {list.map((it) => (
               <TimelineSlot key={it.id} at={it.timelineAt}>

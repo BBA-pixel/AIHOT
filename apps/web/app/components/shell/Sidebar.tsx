@@ -16,6 +16,18 @@ export function useChangelogDot(latestVersion: string | null): boolean {
   return !seen || seen < latestVersion;
 }
 
+
+const NAV_ICO: Record<string, string> = {
+  "/": "nav-ico-bolt",
+  "/hot": "nav-ico-flame",
+  "/daily": "nav-ico-doc",
+  "/topics": "nav-ico-grid",
+  "/starred": "nav-ico-bookmark",
+  "/agent": "nav-ico-plug",
+  "/about": "nav-ico-heart",
+  "/ask": "nav-ico-ask",
+};
+
 function SideLink({ item, dot }: { item: NavItem; dot: boolean }) {
   const { pathname } = useLocation();
   const isActive = sidebarIsActive(item, pathname);
@@ -25,13 +37,13 @@ function SideLink({ item, dot }: { item: NavItem; dot: boolean }) {
       to={item.to}
       prefetch="intent"
       aria-current={isActive ? "page" : undefined}
-      className={`relative flex h-10 items-center gap-2.5 rounded-tile px-3 text-[14px] transition-colors duration-150 press ${
+      className={`group/nav relative flex h-10 items-center gap-2.5 rounded-tile px-3 text-[14px] transition-colors duration-150 press ${
         isActive
           ? "bg-accent-muted font-semibold text-ink"
           : "font-medium text-ink-4 hover:bg-surface-hover hover:text-ink"
       }`}
     >
-      <span className={`flex w-[20px] shrink-0 justify-center ${isActive ? "text-accent" : "text-ink-4"}`}>
+      <span className={`nav-ico flex w-[20px] shrink-0 justify-center ${NAV_ICO[item.to] ?? ""} ${isActive ? "text-accent" : "text-ink-4"}`}>
         <Icon size={18} />
       </span>
       <span className="min-w-0 truncate">{item.label}</span>
