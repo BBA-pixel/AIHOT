@@ -138,6 +138,7 @@ export async function loadTimeline(q: TimelineQuery): Promise<Omit<TimelineRespo
       factId: factInfo.get(factId)?.public_id ?? String(factId),
       additionalSourceCount: new Set(reports.filter((r) => r.source_id !== repSource).map((r) => r.source_id)).size,
       reportCount: new Set(reports.map((r) => r.article_id)).size,
+      memberIds: [...new Set(candidates.map((m) => m.id))],
     };
     const showGroup = group.reportCount > 1;
     planned.push({ key: g.gk, anchorAt: g.anchor_at.toISOString(), id: rep.id, group: showGroup ? group : null });

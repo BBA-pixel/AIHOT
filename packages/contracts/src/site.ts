@@ -74,6 +74,11 @@ export interface GroupInfo {
   additionalSourceCount: number;
   /** Distinct public reports of this fact. */
   reportCount: number;
+  /**
+   * The selected reports of this fact under the current filters. The timeline's reader-side unread
+   * filter keeps a group while any of them is unread; the timeline fills it, other callers omit it.
+   */
+  memberIds?: string[];
 }
 
 export interface TimelineCard {
