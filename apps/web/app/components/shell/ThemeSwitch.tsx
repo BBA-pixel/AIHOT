@@ -18,16 +18,30 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
   const current: Choice = !mounted ? "system" : (pref ?? "system");
   const index = OPTIONS.findIndex((o) => o.key === current);
 
-  const choose = (key: Choice) => {
+  const choose = (key: Choice, el: HTMLElement) => {
     const nextPref: ThemePreference = key === "system" ? null : key;
     const apply = () => {
       setThemePreference(nextPref);
       applyTheme(resolvedTheme(nextPref), nextPref === null);
     };
-    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
-    if (doc.startViewTransition && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      delete doc.documentElement.dataset.vt; // a cross-fade, not the last page change's slide (transitions.ts)
-      doc.startViewTransition(apply);
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready: Promise<void> } };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (doc.startViewTransition && !reduce) {
+      const r = el.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      const end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      const root = doc.documentElement;
+      root.dataset.vt = "theme";
+      root.style.setProperty("--theme-x", `${x}px`);
+      root.style.setProperty("--theme-y", `${y}px`);
+      root.style.setProperty("--theme-r", `${end}px`);
+      const vt = doc.startViewTransition(apply);
+      void vt.ready.finally(() => {
+        setTimeout(() => {
+          if (root.dataset.vt === "theme") delete root.dataset.vt;
+        }, 500);
+      });
     } else apply();
   };
 
@@ -45,8 +59,8 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
           role="radio"
           aria-checked={current === o.key}
           title={o.label}
-          onClick={() => choose(o.key)}
-          className={`relative z-10 flex items-center justify-center transition-colors duration-150 ${current === o.key ? "text-ink" : "text-ink-4 hover:text-ink-2"}`}
+          onClick={(e) => choose(o.key, e.currentTarget)}
+          className={`relative z-10 flex items-center justify-center transition-colors duration-150 ${current === o.key ? "text-ink theme-icon-spin" : "text-ink-4 hover:text-ink-2"}`}
         >
           {o.icon}
           <span className="sr-only">{o.label}</span>

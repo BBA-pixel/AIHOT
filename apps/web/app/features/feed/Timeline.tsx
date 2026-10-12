@@ -32,10 +32,22 @@ function fromResponse(r: TimelineResponse): ListState {
 }
 
 /** Sticky day header under the phone bar: a quiet row on desktop, a grey full-width bar on phones. */
-export function DayHeader({ day, today, count, collapsed, onToggle, aside }: { day: string; today: string; count: number | null; collapsed?: boolean; onToggle?: () => void; aside?: React.ReactNode }) {
+export function DayHeader({ day, today, count, collapsed, onToggle, aside, index }: { day: string; today: string; count: number | null; collapsed?: boolean; onToggle?: () => void; aside?: React.ReactNode; index?: number }) {
   const date = monthDay(day);
   const weekday = beijingWeekday(day);
   const short = weekdayShort(day);
+  const stickRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = stickRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const bar = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--bar-h")) || 0;
+      el.classList.toggle("is-stuck", el.getBoundingClientRect().top <= bar + 0.5);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [day]);
   const phoneRow = (
     <>
       <span className="text-[14px] font-bold text-ink">{day === today ? "今天" : date}</span>
@@ -53,7 +65,7 @@ export function DayHeader({ day, today, count, collapsed, onToggle, aside }: { d
     </>
   );
   return (
-    <div className="bleed sticky top-[var(--bar-h)] z-20 bg-daybar lg:mx-0 lg:bg-bg lg:px-0">
+    <div className="day-sticky bleed sticky top-[var(--bar-h)] z-20 bg-daybar lg:mx-0 lg:bg-bg lg:px-0" ref={stickRef}>
       {/* Phones: a full-width day bar; on the timeline the whole bar folds the day. */}
       {onToggle ? (
         <button type="button" onClick={onToggle} aria-expanded={!collapsed} aria-label={`${collapsed ? "展开" : "收起"}${date}`} className="flex h-11 w-full items-center gap-2 text-left lg:hidden">
@@ -64,6 +76,11 @@ export function DayHeader({ day, today, count, collapsed, onToggle, aside }: { d
       )}
       {/* Desktop: date text shares the page's left edge, regardless of how many digits it has. */}
       <div className="hidden h-11 items-center gap-3 lg:flex">
+        {index != null && (
+          <span className="mono w-6 shrink-0 text-[12px] font-semibold tabular-nums text-ink-4" aria-hidden="true">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+        )}
         {onToggle ? (
           <button type="button" onClick={onToggle} aria-expanded={!collapsed} className="whitespace-nowrap text-left text-[18px] font-semibold leading-6 text-ink">
             {date}
@@ -286,12 +303,12 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
         </div>
       )}
 
-      {days.map(({ day, cards }) => {
+      {days.map(({ day, cards }, dayIndex) => {
         const collapsed = state.collapsed.includes(day);
         const count = state.dayCounts[day] ?? cards.length;
         return (
           <section key={day} aria-label={day} className="lg:mb-1">
-            <DayHeader day={day} today={today} count={count} collapsed={collapsed} onToggle={() => toggleDay(day)} />
+            <DayHeader day={day} today={today} count={count} collapsed={collapsed} onToggle={() => toggleDay(day)} index={dayIndex} />
             <Collapse open={!collapsed}>
                 <ol className="lg:pt-1">
                   {cards.map((c) => {

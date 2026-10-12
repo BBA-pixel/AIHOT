@@ -14,6 +14,8 @@ import { MediaThumbs, SourceLine, StarButton } from "./parts";
 import { GroupButton, GroupSources } from "./ReadingGroup";
 import { QuotedLine } from "../item/QuotedPost";
 import { rememberPreview } from "../item/preview";
+import { onCardSpotlightMove } from "../../lib/spotlight";
+import { vtName } from "../../lib/vt";
 
 export interface FeedItemProps {
   item: FeedItemSummary;
@@ -73,7 +75,7 @@ export const FeedItem = memo(function FeedItem({ item, group, filters, read = fa
         <>
           <h3 className={`mt-1.5 line-clamp-2 text-[17px] font-[650] leading-[1.5] lg:mt-2 lg:line-clamp-none lg:leading-[1.55] ${read ? "text-ink-4" : "text-ink"}`}>
             <IntentLink viewTransition to={`/items/${item.id}`} onClick={open} className="after:absolute after:inset-0 after:content-['']">
-              <span className="link-underline">{item.title}</span>
+              <span className="link-underline" style={{ viewTransitionName: vtName("title", item.id) }}>{item.title}</span>
               <span aria-hidden="true" className="ml-1 hidden translate-x-0 text-accent opacity-0 transition-[opacity,transform] duration-[var(--dur-2)] ease-[var(--ease-out-quart)] group-hover/card:translate-x-[3px] group-hover/card:opacity-100 lg:inline-block">→</span>
             </IntentLink>
           </h3>
