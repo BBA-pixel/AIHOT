@@ -109,6 +109,7 @@ test("every game source has a config its kind implements and the agreed defaults
   assert.equal(byId.get("web-playvalorant-news")!.config.ingestNoiseFilter, undefined, "playvalorant uses URL prefixes");
   assert.match(byId.get("json-vct-news")!.config.url, /tagids=126584/, "VCT CN esports CMC tags");
   assert.match(byId.get("json-vct-news")!.config.urlTemplate, /vct\.qq\.com/, "VCT detail host");
+  assert.deepEqual(byId.get("json-vct-news")!.config.summaryPaths, ["sTitle"], "bare CMC needs title excerpt");
 });
 
 test("the title rule sits on the single-game announcement sources only", () => {
