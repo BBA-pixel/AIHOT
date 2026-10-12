@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { SITE } from "@aihot/site";
 import { Wordmark } from "@aihot/site/brand/Logo.tsx";
@@ -25,9 +25,9 @@ function SideLink({ item, dot }: { item: NavItem; dot: boolean }) {
       to={item.to}
       prefetch="intent"
       aria-current={isActive ? "page" : undefined}
-      className={`relative flex h-10 items-center gap-2.5 rounded-tile px-3 text-[14px] transition-colors duration-150 ${
+      className={`relative flex h-10 items-center gap-2.5 rounded-tile px-3 text-[14px] transition-colors duration-150 press ${
         isActive
-          ? "bg-accent-muted font-semibold text-ink before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:bg-accent"
+          ? "bg-accent-muted font-semibold text-ink"
           : "font-medium text-ink-4 hover:bg-surface-hover hover:text-ink"
       }`}
     >
@@ -40,14 +40,52 @@ function SideLink({ item, dot }: { item: NavItem; dot: boolean }) {
   );
 }
 
+/** One copper marker that slides to the active link (replaces a per-link bar; same place and size). */
+function useNavIndicator() {
+  const nav = useRef<HTMLElement>(null);
+  const bar = useRef<HTMLSpanElement>(null);
+  const { pathname } = useLocation();
+  const useIso = typeof window === "undefined" ? useEffect : useLayoutEffect;
+  useIso(() => {
+    const n = nav.current;
+    const b = bar.current;
+    if (!n || !b) return;
+    const place = () => {
+      const a = n.querySelector<HTMLElement>('a[aria-current="page"]');
+      if (!a) {
+        b.style.opacity = "0";
+        return;
+      }
+      const top = a.offsetTop + 6;
+      const h = a.offsetHeight - 12;
+      const first = !b.dataset.placed;
+      if (first) b.style.transition = "none";
+      b.style.transform = `translateY(${top}px)`;
+      b.style.height = `${h}px`;
+      b.style.opacity = "1";
+      if (first) {
+        b.dataset.placed = "1";
+        void b.offsetHeight;
+        b.style.transition = "";
+      }
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [pathname]);
+  return { nav, bar };
+}
+
 export function Sidebar({ changelogVersion }: { changelogVersion: string | null }) {
   const dot = useChangelogDot(changelogVersion);
+  const { nav, bar } = useNavIndicator();
   return (
     <aside className="sticky top-0 hidden h-dvh w-[232px] shrink-0 flex-col border-r border-border-strong bg-sidebar px-4 pb-3.5 pt-6 lg:flex">
       <Link to="/" className="mb-5 flex h-[50px] items-center px-1 text-ink" aria-label={`${SITE.name} 首页`}>
         <Wordmark size={26} />
       </Link>
-      <nav className="scrollbar-thin -mx-1 flex-1 overflow-y-auto px-1" aria-label="主导航">
+      <nav ref={nav} className="scrollbar-thin relative -mx-1 flex-1 overflow-y-auto px-1" aria-label="主导航">
+        <span ref={bar} aria-hidden="true" className="nav-indicator pointer-events-none absolute left-1 top-0 z-10 w-0.5 bg-accent opacity-0" />
         {sidebar().map((section) => (
           <div key={section.title}>
             <div className="px-3 pb-1 pt-4 text-[11px] uppercase tracking-[0.08em] text-ink-4">{section.title}</div>

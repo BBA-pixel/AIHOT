@@ -11,6 +11,7 @@ import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
 import { Sparkline } from "../features/hot/Sparkline";
 import { Faces } from "../features/hot/Faces";
+import { Ticker } from "../components/ui/Ticker";
 import { Delta } from "../features/hot/Delta";
 import { PhoneBar } from "../components/shell/PhoneBar";
 import type { Screen } from "../components/shell/screens";
@@ -147,7 +148,7 @@ function Lead({ e }: { e: HotEntryView }) {
         <div className="flex w-full shrink-0 items-end justify-between gap-5 sm:ml-auto sm:w-auto sm:justify-end">
           {!panel && <Sparkline values={e.spark} className="h-10 w-[140px]" />}
           <div className="text-right">
-            <div className="mono text-[34px] font-semibold leading-none tracking-[-0.03em] text-ink">{Math.round(e.heat)}</div>
+            <div className="mono text-[34px] font-semibold leading-none tracking-[-0.03em] text-ink"><Ticker value={Math.round(e.heat)} /></div>
             <div className="mt-1 text-[11.5px] text-ink-4">热度指数</div>
           </div>
         </div>
@@ -179,7 +180,7 @@ function Runner({ e }: { e: HotEntryView }) {
         </div>
         <div className="flex items-end gap-3">
           <Sparkline values={e.spark} className="h-7 w-[92px]" />
-          <span className="mono text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink">{Math.round(e.heat)}</span>
+          <span className="mono text-[24px] font-semibold leading-none tracking-[-0.02em] text-ink"><Ticker value={Math.round(e.heat)} /></span>
         </div>
       </div>
     </article>
@@ -209,7 +210,7 @@ function Row({ e }: { e: HotEntryView }) {
             <span className="num">{e.sourceCount}</span> 个来源
           </span>
           <span className="ml-auto flex items-center gap-2">
-            <span className="mono text-[17px] font-semibold leading-none text-ink">{Math.round(e.heat)}</span>
+            <span className="mono text-[17px] font-semibold leading-none text-ink"><Ticker value={Math.round(e.heat)} /></span>
             <Delta trend={e.trend} pct={e.trendPct} />
           </span>
         </div>
@@ -219,7 +220,7 @@ function Row({ e }: { e: HotEntryView }) {
       </div>
       <Sparkline values={e.spark} className="hidden h-7 w-[104px] lg:block" />
       <div className="hidden flex-col items-end gap-1 lg:flex">
-        <span className="mono text-[20px] font-semibold leading-none tracking-[-0.02em] text-ink">{Math.round(e.heat)}</span>
+        <span className="mono text-[20px] font-semibold leading-none tracking-[-0.02em] text-ink"><Ticker value={Math.round(e.heat)} /></span>
         <Delta trend={e.trend} pct={e.trendPct} />
       </div>
     </li>

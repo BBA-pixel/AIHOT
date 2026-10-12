@@ -1,13 +1,13 @@
 // The day-grouped feed (精选 home, topics): a time rail with cards on desktop, rows under grey day bars on
 // phones. Keeps its place across back navigation and loads further pages. There is no "new items"
 // prompt: readers refresh for the latest head — on phones also by tapping the tab again.
+import { FeedSkeleton } from "./Skeleton";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigation } from "react-router";
 import { Collapse } from "../../components/ui/Presence";
 import type { TimelineCard, TimelineFilters, TimelineResponse } from "@aihot/contracts/site";
 import { FeedItem } from "./FeedItem";
 import { IconChevronDown } from "../../components/icons";
-import { RingMark } from "@aihot/site/brand/Logo.tsx";
 import { EmptyState } from "../../components/ui/Page";
 import { beijingDate, beijingTime, beijingWeekday } from "@aihot/contracts/time";
 import { monthDay, weekdayShort } from "../../lib/format";
@@ -109,7 +109,7 @@ export function TimelineSlot({ at, children, fresh = false, delay = 0, dataKey }
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
       {/* Phones: the row without the rail (the item shows its time); a hairline between rows. */}
-      <div className="grid grid-cols-[minmax(0,1fr)] border-b border-line-soft py-3.5 group-last/slot:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:group-last/slot:pb-0">
+      <div className={`grid grid-cols-[minmax(0,1fr)] border-b border-line-soft py-3.5 ${fresh ? "" : "reveal-on-scroll"} group-last/slot:border-b-0 lg:grid-cols-[64px_22px_minmax(0,1fr)] lg:border-b-0 lg:py-0 lg:pb-3 lg:group-last/slot:pb-0`}>
         <time dateTime={at} className="mono hidden text-ink-3 lg:block lg:pt-[17px] lg:text-[12.5px] lg:font-semibold lg:leading-6">
           {beijingTime(at)}
         </time>
@@ -320,9 +320,9 @@ function FeedEnd({ loading, error, hasMore, manual, empty, onMore }: { loading: 
   return (
     <div className="flex justify-center py-6">
       {loading ? (
-        <span className="inline-flex items-center gap-2 text-[12.5px] text-ink-4">
-          <RingMark className="size-4 text-accent" spinning /> 正在加载
-        </span>
+        <div className="w-full" role="status" aria-label="正在加载">
+          <FeedSkeleton count={2} />
+        </div>
       ) : error ? (
         <button type="button" onClick={onMore} className="h-9 rounded-full border border-hot/30 px-4 text-[13px] text-hot hover:bg-hot-soft">
           加载失败，点此重试

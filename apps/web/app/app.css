@@ -76,6 +76,11 @@
   --radius-sheet: 16px;
 
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  /* Motion tokens (docs: aihot-plan/frontend-motion-polish.md). hover 120 · enter 200–240 · page 320–400. */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-1: 120ms;
+  --dur-2: 200ms;
+  --dur-3: 320ms;
 
   /* Breakpoints: phones <= 640, the mobile shell up to 960, desktop above. */
   --breakpoint-sm: 641px;
@@ -254,6 +259,17 @@
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
     border-radius: var(--radius-control);
+    transition: outline-offset var(--dur-1) var(--ease-out-quart);
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+  /* A card whose stretched title link has keyboard focus shows the ring on the card, in its own radius. */
+  .card-focus:has(a:focus-visible) a:focus-visible { outline: none; }
+  .card-focus:has(a:focus-visible) {
+    border-radius: var(--radius-card);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
   }
   a {
     color: inherit;
@@ -609,4 +625,99 @@
    the archive column is halfway between the site sidebar and white. */
 :root:not([data-theme="dark"]) body:has(.report-shell) {
   background: color-mix(in srgb, var(--bg) 60%, var(--surface));
+}
+
+/* ---------------------------------------------------------------------------
+   GAMEHOT motion P0 — tokens above (--dur-*, --ease-*). Only transform / opacity /
+   clip-path / background-size animate. Reduced motion: the global rule plus the overrides below.
+   --------------------------------------------------------------------------- */
+
+/* Pressed feedback for cards, buttons and chips. */
+@utility press {
+  transition: transform var(--dur-1) var(--ease-out-quart);
+  &:active { transform: scale(0.98); }
+}
+
+/* A title link whose underline draws in from the left on hover of the card (group/card) or the link. */
+@utility link-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 0% 1px;
+  transition: background-size var(--dur-3) var(--ease-out-quart), color var(--dur-1);
+  .group\/card:hover &, &:hover { background-size: 100% 1px; }
+}
+
+/* Scroll-in: fades rows up as they enter. Pure CSS scroll timeline, so whatever is already on screen
+   at load is past its range and sits still (nothing animates above the fold); browsers without
+   scroll timelines simply show the rows. */
+@supports (animation-timeline: view()) {
+  .reveal-on-scroll {
+    animation: aihot-scroll-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 60%;
+  }
+}
+@keyframes aihot-scroll-in { from { opacity: 0; transform: translateY(10px); } }
+
+/* Skeletons sweep a soft highlight across instead of blinking. */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-muted);
+  border-radius: var(--radius-control);
+}
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 55%, transparent), transparent);
+  animation: aihot-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes aihot-shimmer { to { transform: translateX(100%); } }
+
+/* Number ticker: each digit is a 0–9 column resting at its final place (inline style); on load it
+   rolls up from 0. Server HTML already shows the right number. */
+.ticker { display: inline-flex; font-variant-numeric: tabular-nums; }
+.ticker-col { display: inline-block; height: 1em; line-height: 1; overflow: hidden; }
+.ticker-col > span {
+  display: flex;
+  flex-direction: column;
+  animation: aihot-tick 900ms var(--ease-out-quart) both;
+  animation-delay: var(--tick-delay, 0ms);
+}
+.ticker-col > span > span { height: 1em; line-height: 1; }
+@keyframes aihot-tick { from { transform: translateY(0); } }
+
+/* Sparkline draws in left to right when it scrolls into view (on load where scroll timelines are missing). */
+.spark-draw { animation: aihot-reveal 900ms var(--ease-out-quart) both; }
+@supports (animation-timeline: view()) {
+  .spark-draw {
+    animation: aihot-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 35%;
+  }
+}
+
+/* Thinking hint on /ask: the text carries a moving sheen. */
+.text-shimmer {
+  background: linear-gradient(90deg, var(--ink-4) 0%, var(--ink-4) 40%, var(--ink) 50%, var(--ink-4) 60%, var(--ink-4) 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: aihot-sheen 2.2s linear infinite;
+}
+@keyframes aihot-sheen { from { background-position: 100% 0; } to { background-position: -150% 0; } }
+
+/* Sidebar: one active marker slides between links. */
+.nav-indicator {
+  transition: transform var(--dur-3) var(--ease-out-quart), height var(--dur-3) var(--ease-out-quart), opacity var(--dur-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll, .spark-draw, .ticker-col > span, .skeleton-shimmer::after { animation: none !important; }
+  .text-shimmer { animation: none; color: var(--ink-3); background: none; }
+  .press:active { transform: none; }
 }
