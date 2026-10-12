@@ -48,7 +48,9 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
   const signal = row.participation_mode !== "editorial";
   const pending = row.body_status === "pending";
   const wantsBody = row.config.fetchPublicContent === true || !!row.config.detail || row.kind === "web_list";
-  const needsPage = !signal && pageFetchable(row.url, row.kind) && (wantsBody || row.bare);
+  // json_list APIs often only ship title/date; val.qq.com etc. are SPAs that never yield a body.
+  // Do not block analysis on a bare listing row unless the source explicitly wants a page fetch.
+  const needsPage = !signal && pageFetchable(row.url, row.kind) && (wantsBody || (row.bare && row.kind !== "json_list"));
   const needsXArticle = row.kind === "x_search" && (!signal || (row.participation_mode === "hot_signal" && !historical));
   return { step: pending && (needsPage || needsXArticle) ? "extract" : "analyze", signal, historical };
 }
