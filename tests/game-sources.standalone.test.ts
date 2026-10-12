@@ -37,14 +37,14 @@ const OFFICIAL = [
   "rss-steam-isaac-rebirth", "rss-steam-sts2", "rss-steam-mewgenics", "rss-steam-bg3",
   "rss-megacrit-news", "web-larian-news",
   // Valorant (non-Steam FPS exception): CN CMC + traditional-Chinese official news
-  "json-val-news", "web-playvalorant-news",
+  "json-val-news", "json-vct-news", "web-playvalorant-news",
 ];
 /** Community hot lists: heat evidence only (Bilibili / Tieba). */
 const HOT = ["json-bilibili-hotword", "json-tieba-hottopic"];
 /** Disabled mobile/F2P announcement feeds still carry the old shared title rule (kept for re-enable). Steam seed feeds do not. */
 const SINGLE_GAME = ["json-pvp-news", "json-lol-news", "json-miyoushe-ys", "json-miyoushe-sr", "web-yjwujian", "web-gp-qq"];
 /** Enabled Valorant CN announcements: same keep/drop idea, with Valorant-specific markers. */
-const VALORANT_TITLE_RULE = ["json-val-news"];
+const VALORANT_TITLE_RULE = ["json-val-news", "json-vct-news"];
 const DISABLED_OFFICIAL = new Set(["json-pvp-news", "json-lol-news", "json-miyoushe-ys", "json-miyoushe-sr", "web-yjwujian", "web-gp-qq", "web-lolesports"]);
 /** Listings that print no absolute date: their detail pages (or a later listing) date them. */
 const UNDATED_LISTING = new Set(["web-17173", "web-sina-esports", "web-wanplus", "web-youxituoluo", "web-indienova", "web-gp-qq", "web-playvalorant-news"]);
@@ -99,13 +99,16 @@ test("every game source has a config its kind implements and the agreed defaults
   assert.deepEqual(byId.get("rss-megacrit-news")!.config.allowUrlPrefixes, ["https://megacrit.com/news/"]);
   assert.equal(byId.get("rss-megacrit-news")!.owner_entity_id, "mega-crit");
   assert.equal(byId.get("web-larian-news")!.owner_entity_id, "larian");
-  for (const id of ["json-val-news", "web-playvalorant-news"]) {
+  for (const id of ["json-val-news", "json-vct-news", "web-playvalorant-news"]) {
     assert.notEqual(byId.get(id)!.enabled, false, id);
     assert.equal(byId.get(id)!.tier, "T1", id);
     assert.equal(byId.get(id)!.owner_entity_id, "valorant", id);
   }
   assert.ok(byId.get("json-val-news")!.config.ingestNoiseFilter, "json-val-news title rule");
+  assert.ok(byId.get("json-vct-news")!.config.ingestNoiseFilter, "json-vct-news title rule");
   assert.equal(byId.get("web-playvalorant-news")!.config.ingestNoiseFilter, undefined, "playvalorant uses URL prefixes");
+  assert.match(byId.get("json-vct-news")!.config.url, /tagids=126584/, "VCT CN esports CMC tags");
+  assert.match(byId.get("json-vct-news")!.config.urlTemplate, /vct\.qq\.com/, "VCT detail host");
 });
 
 test("the title rule sits on the single-game announcement sources only", () => {
@@ -116,6 +119,7 @@ test("the title rule sits on the single-game announcement sources only", () => {
   const valRule = byId.get("json-val-news")!.config.ingestNoiseFilter;
   assert.ok(valRule.keepIfMatches.includes("版本更新") && valRule.keepIfMatches.includes("无畏契约"), "Valorant keep list");
   assert.ok(valRule.dropMarkersTitleOnly.includes("夜市") && valRule.dropMarkersTitleOnly.includes("商城"), "Valorant drop list");
+  assert.deepEqual(byId.get("json-vct-news")!.config.ingestNoiseFilter, valRule, "VCT CN shares Valorant title rule");
   for (const id of ["rss-ps-blog-zh-hant", "rss-xbox-wire", "rss-nintendo-jp", "web-nintendo-hk", "rss-steam-news", "rss-steam-cs2", "rss-steam-dota2", "rss-steam-isaac-rebirth", "rss-steam-sts2", "rss-steam-mewgenics", "rss-steam-bg3", "rss-megacrit-news", "web-larian-news", "web-playvalorant-news"]) {
     assert.equal(byId.get(id)!.config.ingestNoiseFilter, undefined, id);
   }
@@ -217,6 +221,13 @@ test("official title rules on real announcement lists", async () => {
   // Platform feeds are not filtered: a PlayStation release-date post passes as it is.
   const { raw, kept } = await readSnapshot(byId.get("rss-ps-blog-zh-hant")!);
   assert.equal(kept.length, raw.length);
+});
+
+test("VCT CN esports CMC keeps match reports and builds vct.qq.com detail URLs", async () => {
+  const { raw, kept } = await readSnapshot(byId.get("json-vct-news")!);
+  assert.ok(raw.length >= 5, `fixture rows ${raw.length}`);
+  assert.ok(kept.some((c) => /战胜|不敌|晋级|出线/.test(c.title)), kept.map((c) => c.title).join(" / "));
+  for (const c of kept) assert.match(c.url, /^https:\/\/vct\.qq\.com\/news_details\.html\?docId=\d+$/, c.url);
 });
 
 test("detail pages date the listings that print relative or no dates", async () => {
