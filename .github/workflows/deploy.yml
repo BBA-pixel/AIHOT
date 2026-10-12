@@ -26,12 +26,26 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script_stop: true
           command_timeout: 40m
           script: |
             set -euo pipefail
             cd /opt/gamehot
-            git fetch origin main
+            # HTTP/2 TLS to GitHub sometimes drops mid-fetch on this VPS; prefer 1.1 and retry.
+            git config http.version HTTP/1.1
+            git config http.postBuffer 524288000
+            fetch_ok=0
+            for attempt in 1 2 3 4 5; do
+              if git fetch origin main; then
+                fetch_ok=1
+                break
+              fi
+              echo "git fetch failed (attempt ${attempt}); retrying in $((attempt * 5))s..."
+              sleep $((attempt * 5))
+            done
+            if [ "$fetch_ok" -ne 1 ]; then
+              echo "git fetch failed after retries" >&2
+              exit 1
+            fi
             git reset --hard origin/main
             # Keep existing .env; rebuild and restart (China npm mirror)
             sudo docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com
