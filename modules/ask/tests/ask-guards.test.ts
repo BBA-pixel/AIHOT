@@ -190,3 +190,26 @@ test("friendlyStepSummary never echoes model-facing tool body", () => {
   assert.equal(summary.includes("安全边界"), false);
   assert.equal(summary.includes("GAMEHOT"), false);
 });
+
+test("friendlyStepSummary for get_latest uses recent-dump wording not 相关资料", () => {
+  const summary = friendlyStepSummary({
+    ok: true,
+    name: "get_latest",
+    text: "近期列表……",
+    structured: { count: 30 },
+    evidence: [], // timeline dumps are not citeable 来源
+  });
+  assert.equal(summary, "拉取近期公开动态 30 条");
+  assert.equal(summary.includes("相关资料"), false);
+});
+
+test("friendlyStepSummary get_latest empty is 暂无结果", () => {
+  const summary = friendlyStepSummary({
+    ok: true,
+    name: "get_latest",
+    text: "暂无",
+    structured: { count: 0 },
+    evidence: [],
+  });
+  assert.equal(summary, "暂无结果");
+});

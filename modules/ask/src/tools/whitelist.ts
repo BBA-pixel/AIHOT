@@ -136,18 +136,11 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
         };
         const res = await v1Items({ ...p, by: "timeline", q: null, cursor: null });
         const text = truncate(latestAnswer(res, p));
-        const evidence: EvidenceCandidate[] = (res.items ?? []).slice(0, p.limit).map((it: { id: string; title: string; sourceName?: string; source?: { name: string }; publishedAt?: string | null; links?: { original?: string }; siteUrl?: string }) => ({
-          kind: "item" as const,
-          objectId: it.id,
-          title: it.title,
-          sourceName: it.sourceName ?? it.source?.name ?? null,
-          publishedAt: it.publishedAt ?? null,
-          siteUrl: `/items/${it.id}`,
-          originalUrl: it.links?.original ?? null,
-          toolName: tool,
-          rawRef: { id: it.id },
-        }));
-        return { ok: true, name: tool, text, structured: { count: evidence.length }, evidence };
+        const count = (res.items ?? []).slice(0, p.limit).length;
+        // Timeline / recent-list dumps are browsing context for the model, not query-matched
+        // hits. Do not register them as citeable 来源 (avoids empty-search fallbacks showing
+        // unrelated DOOM/MTG/etc. items under「来源 N」).
+        return { ok: true, name: tool, text, structured: { count }, evidence: [] };
       }
       case "search": {
         const a = parsed.data as { q: string; window?: AgentWindow; category?: string | null; limit?: number };
@@ -278,9 +271,13 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
 
 /** Short user-facing step summary — never the model-facing tool body (preamble / URLs / security fence). */
 export function friendlyStepSummary(exec: ToolExecOk): string {
+  const count = typeof exec.structured.count === "number" ? exec.structured.count : exec.evidence.length;
+  // get_latest is an unfiltered recent dump, not query-matched hits.
+  if (exec.name === "get_latest") {
+    return count > 0 ? `拉取近期公开动态 ${count} 条` : "暂无结果";
+  }
   const n = exec.evidence.length;
   if (n > 0) return `找到 ${n} 条相关资料`;
-  const count = exec.structured.count;
   if (typeof count === "number") return count > 0 ? `找到 ${count} 条相关资料` : "暂无结果";
   return "完成";
 }

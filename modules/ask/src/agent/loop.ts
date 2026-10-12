@@ -273,20 +273,27 @@ export async function runAskTask(opts: LoopOptions): Promise<void> {
 
         const exec = await executeAskTool(tc.function.name, tc.function.arguments);
         if (exec.ok) {
-          const ids = await insertEvidence(opts.taskId, exec.evidence.map((e) => ({
-            kind: e.kind, objectId: e.objectId, title: e.title, sourceName: e.sourceName,
-            publishedAt: e.publishedAt, siteUrl: e.siteUrl, originalUrl: e.originalUrl,
-            toolName: e.toolName, rawRef: e.rawRef,
-          })));
+          const ids = exec.evidence.length
+            ? await insertEvidence(opts.taskId, exec.evidence.map((e) => ({
+              kind: e.kind, objectId: e.objectId, title: e.title, sourceName: e.sourceName,
+              publishedAt: e.publishedAt, siteUrl: e.siteUrl, originalUrl: e.originalUrl,
+              toolName: e.toolName, rawRef: e.rawRef,
+            })))
+            : [];
           evidenceIds.push(...ids);
-          const withIds = exec.evidence.map((e, i) => ({ ...e, evidenceId: ids[i] }));
-          await appendEvent(opts.taskId, "evidence", {
-            items: withIds.map((e) => ({
-              id: e.evidenceId, kind: e.kind, title: e.title, siteUrl: e.siteUrl, originalUrl: e.originalUrl, sourceName: e.sourceName,
-            })),
-          });
+          if (ids.length) {
+            const withIds = exec.evidence.map((e, i) => ({ ...e, evidenceId: ids[i] }));
+            await appendEvent(opts.taskId, "evidence", {
+              items: withIds.map((e) => ({
+                id: e.evidenceId, kind: e.kind, title: e.title, siteUrl: e.siteUrl, originalUrl: e.originalUrl, sourceName: e.sourceName,
+              })),
+            });
+          }
           await appendEvent(opts.taskId, "step_end", { stepId, ok: true, summary: friendlyStepSummary(exec) });
-          const toolText = `证据编号：${ids.map((id) => `[${id}]`).join(" ")}\n${exec.text}`;
+          // Timeline dumps (e.g. get_latest) may have no citeable ids — tell the model not to invent [n].
+          const toolText = ids.length
+            ? `证据编号：${ids.map((id) => `[${id}]`).join(" ")}\n${exec.text}`
+            : `（本工具结果未登记为可引用证据；回答中不要使用证据编号引用）\n${exec.text}`;
           messages.push({ role: "tool", tool_call_id: tc.id, content: toolText });
         } else {
           await appendEvent(opts.taskId, "step_end", { stepId, ok: false, summary: exec.message, errorCode: exec.errorCode });

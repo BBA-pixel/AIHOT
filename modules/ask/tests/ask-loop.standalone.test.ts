@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checkCitations, sanitizeAskMarkdown, isAllowedAskHref } from "../src/agent/citations.ts";
-import { ASK_TOOL_NAMES, ASK_TOOL_LABELS_ZH } from "../src/tools/whitelist.ts";
+import { ASK_TOOL_NAMES, ASK_TOOL_LABELS_ZH, friendlyStepSummary } from "../src/tools/whitelist.ts";
 import { logicalKeyFor } from "@aihot/backend/providers/receipts";
 import { sha256, stableJson } from "@aihot/backend/lib/ids";
 
@@ -69,4 +69,29 @@ test("identity hash includes messages and tools", () => {
   const h1 = sha256(stableJson({ messagesHash: "m1", toolsHash: "t1" }));
   const h2 = sha256(stableJson({ messagesHash: "m2", toolsHash: "t1" }));
   assert.notEqual(h1, h2);
+});
+
+test("get_latest step chip is 拉取近期公开动态, not 相关资料", () => {
+  const summary = friendlyStepSummary({
+    ok: true,
+    name: "get_latest",
+    text: "近期列表……",
+    structured: { count: 30 },
+    evidence: [],
+  });
+  assert.equal(summary, "拉取近期公开动态 30 条");
+  assert.equal(summary.includes("相关资料"), false);
+});
+
+test("search/hot step chip still says 相关资料 when evidence present", () => {
+  const summary = friendlyStepSummary({
+    ok: true,
+    name: "search",
+    text: "hit",
+    structured: { count: 1 },
+    evidence: [
+      { kind: "item", objectId: "a", title: "t", sourceName: null, publishedAt: null, siteUrl: "/items/a", originalUrl: null, toolName: "search", rawRef: {} },
+    ],
+  });
+  assert.equal(summary, "找到 1 条相关资料");
 });
