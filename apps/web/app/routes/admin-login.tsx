@@ -46,7 +46,7 @@ export default function AdminLogin() {
             autoComplete="current-password"
             required
             autoFocus
-            className="mt-2 h-10 w-full rounded-full border border-line-strong bg-surface px-4 text-[14px] text-ink outline-none transition-colors focus:border-accent"
+            className="mt-2 h-10 w-full rounded-control border border-line-strong bg-surface px-4 text-[14px] text-ink outline-none transition-colors focus:border-accent"
           />
           {message && (
             <p role="alert" className="mt-3 text-[12.5px] leading-relaxed text-hot">

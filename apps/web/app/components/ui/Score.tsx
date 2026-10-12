@@ -42,7 +42,7 @@ export function ScoreLabel({
     <span
       title={title}
       aria-label={title}
-      className={`inline-flex h-[20px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[2px] px-2 ring-1 ring-inset ${tier.className}`}
+      className={`inline-flex h-[20px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-mark px-2 ring-1 ring-inset ${tier.className}`}
     >
       {!compact && (
         <>

@@ -304,7 +304,7 @@ export default function AskPage() {
     <div className="mx-auto flex min-h-[70vh] max-w-[var(--page-max-reading)] flex-col pb-8">
       <PhoneBar title="AI 问答" />
       <header className="px-1 pb-4 pt-1">
-        <h1 className="text-[22px] font-bold text-ink">AI 问答</h1>
+        <h1 className="font-display text-[24px] font-semibold tracking-wide text-ink">AI 问答</h1>
         <p className="mt-2 text-[14px] leading-6 text-ink-3">
           只依据 GAMEHOT 站内公开资料回答：近期精选、搜索、热点、事件进展，以及入选／上榜依据。不搜全网、不做攻略，打开本页不触发模型调用。
         </p>
@@ -313,7 +313,7 @@ export default function AskPage() {
       {bubbles.length === 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           {EXAMPLES.map((q) => (
-            <button key={q} type="button" className="rounded-full border border-line bg-bg-elev px-3 py-1.5 text-[13px] text-ink-2 hover:bg-bg-sunk" onClick={() => setInput(q)}>
+            <button key={q} type="button" className="rounded-control border border-line bg-bg-elevated px-3 py-1.5 text-[13px] text-ink-2 transition-colors hover:bg-surface-hover hover:text-ink" onClick={() => setInput(q)}>
               {q}
             </button>
           ))}
@@ -322,12 +322,12 @@ export default function AskPage() {
 
       <div className="flex flex-1 flex-col gap-4">
         {bubbles.map((b, i) => (
-          <div key={i} className={b.role === "user" ? "self-end max-w-[90%] rounded-2xl bg-accent/10 px-4 py-2.5 text-[15px] text-ink" : "self-start w-full max-w-[95%] rounded-2xl border border-line bg-bg-elev px-4 py-3"}>
+          <div key={i} className={b.role === "user" ? "self-end max-w-[90%] rounded-card bg-accent-muted px-4 py-2.5 text-[15px] text-ink" : "self-start w-full max-w-[95%] rounded-card border border-line bg-surface px-4 py-3"}>
             {b.role === "user" ? b.text : (
               <>
                 {b.steps.length > 0 && (
-                  <details className="mb-2 text-[13px] text-ink-3">
-                    <summary className="cursor-pointer select-none">步骤（{b.steps.length}）</summary>
+                  <details className="disclosure mb-2 rounded-control bg-bg-sunk px-3 py-2 text-[13px] text-ink-3">
+                    <summary className="cursor-pointer select-none text-ink-2">步骤（{b.steps.length}）</summary>
                     <ul className="mt-1 space-y-1">
                       {b.steps.map((s) => (
                         <li key={s.stepId}>
@@ -363,7 +363,7 @@ export default function AskPage() {
                     </ul>
                   </div>
                 )}
-                {b.status === "completed_degraded" && <p className="mt-2 text-[12px] text-amber-700">引用校验未完全通过，已降级展示。</p>}
+                {b.status === "completed_degraded" && <p className="mt-2 text-[12px] text-amber-ink">引用校验未完全通过，已降级展示。</p>}
                 {b.status === "cancelled" && <p className="mt-2 text-[12px] text-ink-4">已停止</p>}
                 {b.status === "limit_reached" && <p className="mt-2 text-[12px] text-ink-4">已达调用上限</p>}
                 {b.status === "failed" && <p className="mt-2 text-[12px] text-hot">生成失败</p>}
@@ -379,7 +379,7 @@ export default function AskPage() {
       <div className="sticky bottom-0 mt-4 border-t border-line bg-bg pt-3">
         <div className="flex gap-2">
           <textarea
-            className="min-h-[44px] flex-1 resize-none rounded-xl border border-line bg-bg-elev px-3 py-2 text-[15px] text-ink outline-none focus:border-accent"
+            className="min-h-[44px] flex-1 resize-none rounded-control border border-line bg-field px-3 py-2 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-4 focus:border-accent focus:bg-surface"
             rows={2}
             maxLength={2000}
             placeholder="问站内资讯、热点或入选／上榜依据…"
@@ -395,9 +395,9 @@ export default function AskPage() {
           />
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button type="button" className="rounded-lg bg-accent px-4 py-2 text-[14px] font-medium text-white disabled:opacity-50" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
-          <button type="button" className="rounded-lg border border-line px-4 py-2 text-[14px] text-ink-2 disabled:opacity-50" disabled={!busy} onClick={() => void stop()}>停止</button>
-          <button type="button" className="rounded-lg border border-line px-4 py-2 text-[14px] text-ink-2" onClick={newChat}>新对话</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control bg-accent px-4 text-[14px] font-medium text-accent-contrast transition-colors hover:bg-accent-ink disabled:opacity-50" disabled={busy || !input.trim()} onClick={() => void send(input)}>发送</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink disabled:opacity-50" disabled={!busy} onClick={() => void stop()}>停止</button>
+          <button type="button" className="inline-flex h-10 items-center justify-center rounded-control border border-line-strong bg-surface px-4 text-[14px] font-medium text-ink-2 transition-colors hover:border-ink-4 hover:text-ink" onClick={newChat}>新对话</button>
         </div>
       </div>
     </div>

@@ -102,7 +102,7 @@ export function SearchOverlay() {
   }
 
   const companies = (more?.topics ?? []).filter((t) => t.group === "company").slice(0, 6);
-  const chip = "inline-flex h-11 max-w-full items-center rounded-full px-3.5 text-[14px] transition-colors";
+  const chip = "inline-flex h-11 max-w-full items-center rounded-control px-3.5 text-[14px] transition-colors";
   return (
     <div
       ref={panel}
@@ -140,7 +140,7 @@ export function SearchOverlay() {
             maxLength={200}
             autoComplete="off"
             enterKeyHint="search"
-            className="h-10 w-full rounded-full bg-surface pl-10 pr-9 text-[16px] text-ink outline-none ring-1 ring-inset ring-line-strong transition-shadow placeholder:text-ink-4 focus:ring-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] [&::-webkit-search-cancel-button]:hidden"
+            className="h-10 w-full rounded-control bg-surface pl-10 pr-9 text-[16px] text-ink outline-none ring-1 ring-inset ring-line-strong transition-shadow placeholder:text-ink-4 focus:ring-accent focus:shadow-[0_0_0_3px_var(--accent-soft)] [&::-webkit-search-cancel-button]:hidden"
           />
           {hasText && (
             <button

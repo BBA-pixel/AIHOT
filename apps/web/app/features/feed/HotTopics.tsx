@@ -15,7 +15,7 @@ function rankLabel(rank: number): string {
 function TrendMark({ trend }: { trend: HotStripEntry["trend"] }) {
   if (trend === "up") return <IconTrendUp size={14} strokeWidth={2.2} className="text-accent" aria-label="热度上升" />;
   if (trend === "down") return <IconTrendDown size={14} strokeWidth={2.2} className="text-ink-4" aria-label="热度回落" />;
-  if (trend === "new") return <span className="rounded-[2px] bg-accent-muted px-1.5 text-[10.5px] font-semibold leading-4 text-accent">新</span>;
+  if (trend === "new") return <span className="rounded-mark bg-accent-muted px-1.5 text-[10.5px] font-semibold leading-4 text-accent">新</span>;
   if (trend === "unknown") return null;
   return <IconMinus size={14} strokeWidth={2.2} className="text-ink-4" aria-label="热度持平" />;
 }

@@ -7,7 +7,7 @@
 
 /* ---------------------------------------------------------------------------
    Design tokens: GAMEHOT ink-copper dark / porcelain light magazine.
-   Hairline borders, near-square radii, copper/ink-gold accent — no neon,
+   Hairline borders, mildly softened radii, copper/ink-gold accent — no neon,
    purple gradients, or glassmorphism. Spec: docs/visual-tokens.md
    --------------------------------------------------------------------------- */
 
@@ -66,13 +66,13 @@
   --color-focus-ring: var(--focus-ring);
   --color-overlay: var(--overlay);
 
-  /* Magazine radii: default square; tags <= 2px; controls <= 4px when needed. */
-  --radius-mark: 2px;
-  --radius-control: 4px;
-  --radius-tile: 0px;
-  --radius-card: 0px;
-  --radius-panel: 0px;
-  --radius-sheet: 4px;
+  /* Magazine radii: mild soften (not pills). Tags ~3px; controls ~6px; cards/tiles ~6px. */
+  --radius-mark: 3px;
+  --radius-control: 6px;
+  --radius-tile: 4px;
+  --radius-card: 6px;
+  --radius-panel: 6px;
+  --radius-sheet: 10px;
 
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 
@@ -252,7 +252,7 @@
   :focus-visible {
     outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
-    border-radius: 0;
+    border-radius: var(--radius-control);
   }
   a {
     color: inherit;
