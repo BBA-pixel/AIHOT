@@ -167,7 +167,8 @@ export function fromHtml(html: string, base: string, source: SourceRow): Candida
     if (!url || seen.has(url) || !allowed(url, source)) continue;
     if (!sectionsArePosts && listingItself(url, listing)) continue;
     const titleEl = c.titleSelector ? (el.is(c.titleSelector) ? el : el.find(c.titleSelector).first()) : linkEl;
-    const title = collapseWhitespace(titleEl.text() || linkEl.attr("title") || "");
+    // Riot/news cards often put the clean headline in aria-label; .text() concatenates time + blurb.
+    const title = collapseWhitespace(linkEl.attr("aria-label") || titleEl.attr("aria-label") || linkEl.attr("title") || titleEl.text() || "");
     if (!title) continue;
     let publishedAt: Date | null = null;
     if (c.publishedAtSelector) {
