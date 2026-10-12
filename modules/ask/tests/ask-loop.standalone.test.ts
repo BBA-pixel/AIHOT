@@ -71,15 +71,15 @@ test("identity hash includes messages and tools", () => {
   assert.notEqual(h1, h2);
 });
 
-test("get_latest step chip is 拉取近期公开动态, not 相关资料", () => {
+test("get_latest step chip is 拉取近期精选/公开动态, not 相关资料", () => {
   const summary = friendlyStepSummary({
     ok: true,
     name: "get_latest",
     text: "近期列表……",
-    structured: { count: 30 },
+    structured: { count: 30, mode: "selected" },
     evidence: [],
   });
-  assert.equal(summary, "拉取近期公开动态 30 条");
+  assert.equal(summary, "拉取近期精选 30 条");
   assert.equal(summary.includes("相关资料"), false);
 });
 

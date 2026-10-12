@@ -41,10 +41,31 @@ export function stamp(at: string | Date, now = Date.now()): string {
 const linkText = (title: string) => title.replace(/([[\]])/g, "\\$1");
 const category = (key: string | null) => (key && isCategoryKey(key) ? CATEGORY_LABELS[key] : null);
 
+function itemTimeBits(it: V1ItemPayload): string[] {
+  const bits: string[] = [publicSourceName(it.source.name)];
+  // Prefer the site timeline clock (same as the 精选页 rail). publishedAt is the source's own time and
+  // can be hours earlier when an item only entered the feed later — agents must not use it alone for
+  // "最近一小时" filters.
+  if (it.timelineAt) {
+    bits.push(`站内时间 ${stamp(it.timelineAt)}`);
+    if (it.publishedAt) {
+      const skew = Math.abs(Date.parse(it.publishedAt) - Date.parse(it.timelineAt));
+      if (skew >= 60_000) bits.push(`原文发布于 ${stamp(it.publishedAt)}`);
+    }
+  } else if (it.publishedAt) {
+    bits.push(`发布于 ${stamp(it.publishedAt)}`);
+  } else {
+    bits.push(`${SITE.name} 收录于 ${stamp(it.discoveredAt)}`);
+  }
+  const cat = category(it.category);
+  if (cat) bits.push(cat);
+  return bits;
+}
+
 function itemLines(items: V1ItemPayload[]): string[] {
   return items.flatMap((it, i) => [
     `${i + 1}. [${linkText(it.title)}](${it.links.aihot})`,
-    `   ${[publicSourceName(it.source.name), it.publishedAt ? `发布于 ${stamp(it.publishedAt)}` : `${SITE.name} 收录于 ${stamp(it.discoveredAt)}`, category(it.category)].filter(Boolean).join(" · ")}`,
+    `   ${itemTimeBits(it).join(" · ")}`,
     ...(it.summary ? [`   摘要：${it.summary}`] : []),
     ...(it.reason ? [`   ${ITEM_COPY.reasonLabel}：${it.reason}`] : []),
     `   原文：${it.links.original}`,
@@ -56,6 +77,7 @@ const BRIEF_HINTS = [
   "先用一两句话概括，再挑最重要的 3–8 条（用户要全部就全列）；保持上面的先后顺序，不要自己排成榜单。",
   `每条：标题链接到 ${SITE.name}；写来源和北京时间；用一两句人话讲清楚是什么。有${ITEM_COPY.reasonLabel}就用它说明为什么值得关注，没有就不要编。`,
   "只根据上面的内容回答，不要用训练记忆补成“最新消息”；用户要出处时再给原文链接。",
+  "「最近 N 小时」按每条的「站内时间」过滤（与精选页时间轴一致）；「原文发布于」可能更早，不能单独用来判断是否落入该窗口。没有独立的 1 小时参数，用 24h 结果自行过滤即可。",
   NO_INTERNALS,
 ];
 
@@ -71,7 +93,11 @@ export function latestAnswer(res: V1ItemsResult, q: LatestQuery): string {
     ]);
   }
   const more = res.page.hasMore ? (q.limit < 30 ? "后面还有，调大 limit（最多 30）可以多看。" : "后面还有，范围更大时请缩小到某个分类或关键词。") : "";
-  return answer([`# ${title}`, "", `${res.items.length} 条，从新到旧，时间为北京时间。${more}`], itemLines(res.items), BRIEF_HINTS);
+  return answer(
+    [`# ${title}`, "", `${res.items.length} 条，按站内时间轴从新到旧（与精选页一致；北京时间）。${more}`],
+    itemLines(res.items),
+    BRIEF_HINTS,
+  );
 }
 
 /** Editorial picks first; only when they have nothing is the whole public pool searched (as MCP always did). */
