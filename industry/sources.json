@@ -949,6 +949,9 @@
         "titlePaths": [
           "sTitle"
         ],
+        "summaryPaths": [
+          "sTitle"
+        ],
         "publishedAtPath": "sIdxTime",
         "publishedAtUtcOffset": "+08:00",
         "externalIdPath": "iDocID",
