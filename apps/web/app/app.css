@@ -857,3 +857,39 @@
   .text-shimmer { animation: none; color: var(--ink-3); background: none; }
   .press:active { transform: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   GAMEHOT motion P2 — toast (Presence), read-away fade, report title reveal,
+   ask chips, search-busy queue, SelectionExplain arrow.
+   --------------------------------------------------------------------------- */
+
+.read-dimmable { transition: opacity var(--dur-3) var(--ease-out-quart); }
+.read-dimmable.read-away { opacity: 0.55; }
+
+.reveal-title-word {
+  animation: aihot-fade-in 420ms var(--ease-out-quart) both;
+}
+@supports (animation-timeline: view()) {
+  /* still fine as load animation */
+}
+
+.ask-chip {
+  animation: aihot-drop-in 280ms var(--ease-out-quart) both;
+}
+
+.queue-dot {
+  height: 10px;
+  animation: aihot-queue 1.1s ease-in-out infinite;
+}
+@keyframes aihot-queue {
+  0%, 100% { height: 8px; opacity: 0.35; }
+  50% { height: 22px; opacity: 1; }
+}
+
+.explain-panel { isolation: isolate; }
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-title-word, .ask-chip, .queue-dot { animation: none !important; }
+  .read-dimmable.read-away { opacity: 1; }
+  .ask-chip button:hover { transform: none; }
+}

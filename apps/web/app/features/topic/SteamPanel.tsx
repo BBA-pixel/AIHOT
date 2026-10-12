@@ -1,5 +1,29 @@
 import type { SteamTopicPanel } from "@aihot/contracts/site";
 import { IconExternal } from "../../components/icons";
+import { Ticker } from "../../components/ui/Ticker";
+
+/** Price label with digit odometer when the store price is numeric (e.g. "¥48.00"). */
+function PriceLabel({ label, discountPercent }: { label: string; discountPercent: number }) {
+  const m = /^([^\d]*)(\d+)([^\d]*)$/.exec(label.replace(/,/g, ""));
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[12.5px] font-semibold text-accent">
+      {m ? (
+        <>
+          {m[1]}
+          <Ticker value={Number(m[2])} />
+          {m[3]}
+        </>
+      ) : (
+        label
+      )}
+      {discountPercent > 0 && (
+        <span className="text-[11px] font-medium text-hot">
+          -<Ticker value={discountPercent} />%
+        </span>
+      )}
+    </span>
+  );
+}
 
 /** Compact Steam store card for seed game topic deep pages. */
 export function SteamPanel({ steam }: { steam: SteamTopicPanel }) {
@@ -30,14 +54,7 @@ export function SteamPanel({ steam }: { steam: SteamTopicPanel }) {
               <p className="text-[11.5px] font-semibold tracking-[0.06em] text-accent">Steam 商店</p>
               <h2 className="mt-0.5 text-[17px] font-bold leading-snug text-ink">{steam.name}</h2>
             </div>
-            {steam.price && (
-              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[12.5px] font-semibold text-accent">
-                {steam.price.label}
-                {steam.price.discountPercent > 0 && (
-                  <span className="text-[11px] font-medium text-hot">-{steam.price.discountPercent}%</span>
-                )}
-              </span>
-            )}
+            {steam.price && <PriceLabel label={steam.price.label} discountPercent={steam.price.discountPercent} />}
           </div>
           {steam.shortDescription && (
             <p className="line-clamp-3 text-[13.5px] leading-relaxed text-ink-3">{steam.shortDescription}</p>
@@ -78,7 +95,9 @@ export function SteamPanel({ steam }: { steam: SteamTopicPanel }) {
             {steam.metacriticScore != null && (
               <div>
                 <dt className="inline text-ink-4">Metacritic · </dt>
-                <dd className="num inline font-semibold text-ink-2">{steam.metacriticScore}</dd>
+                <dd className="num inline font-semibold text-ink-2">
+                  <Ticker value={steam.metacriticScore} />
+                </dd>
               </div>
             )}
           </dl>

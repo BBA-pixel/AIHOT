@@ -291,6 +291,7 @@ export function SignalRiver({
   children?: ReactNode;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const mouseRef = useRef<{ x: number; y: number; on: boolean }>({ x: 0, y: 0, on: false });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const focusRef = useRef(focus);
@@ -390,11 +391,13 @@ export function SignalRiver({
 
       const trail = Math.max(24, Math.min(56, L.w * 0.04));
       ctx.lineWidth = 1.8;
+      const mouse = mouseRef.current;
       for (const p of pulses) {
         const s = L.strands[p.s]!;
         const head = Math.min(p.x, s.end);
         if (head <= 0) continue;
-        const tail = Math.max(0, head - trail);
+        const trailLen = trail;
+        const tail = Math.max(0, head - trailLen);
         let c = col.ink;
         let a = col.dark ? 0.85 : 0.7;
         if (head >= L.gate) {
@@ -407,9 +410,29 @@ export function SignalRiver({
         const g = ctx.createLinearGradient(tail, 0, head, 0);
         g.addColorStop(0, rgba(c, 0));
         g.addColorStop(1, rgba(c, a));
-        trace(ctx, s, tail, head);
+        // Mouse gently pulls nearby pulses' path toward the pointer (the only bold motion on /about).
+        const pull = (x: number, y0: number) => {
+          if (!mouse.on) return y0;
+          const dx = x - mouse.x;
+          const dy = y0 - mouse.y;
+          const d2 = dx * dx + dy * dy;
+          const r = 140;
+          if (d2 > r * r || d2 < 1) return y0;
+          const w = (1 - Math.sqrt(d2) / r) ** 2;
+          return y0 + (mouse.y - y0) * w * 0.55;
+        };
+        const aCol = Math.max(0, Math.floor(tail / STEP));
+        const bCol = Math.min(s.ys.length - 1, Math.ceil(head / STEP));
+        ctx.beginPath();
+        ctx.moveTo(Math.max(tail, 0), pull(Math.max(tail, 0), s.ys[aCol]!));
+        for (let colI = aCol + 1; colI <= bCol; colI++) {
+          const x = Math.min(colI * STEP, head);
+          ctx.lineTo(x, pull(x, s.ys[colI]!));
+        }
         ctx.strokeStyle = g;
+        ctx.lineWidth = 2.2;
         ctx.stroke();
+        ctx.lineWidth = 1;
       }
 
       const f = (now - flashAt) / FLASH_MS;
@@ -479,6 +502,7 @@ export function SignalRiver({
       const box = wrap.getBoundingClientRect();
       const x = e.clientX - box.left;
       const y = e.clientY - box.top;
+      mouseRef.current = { x, y, on: true };
       const p = L.paper;
       if (x >= p.x - 8 && x <= p.x + p.w + 8 && y >= p.y - 8 && y <= p.y + p.h + 8) {
         hover = { s: null, bundle: null, paper: true };
@@ -517,6 +541,7 @@ export function SignalRiver({
     };
     const onLeave = () => {
       hover = null;
+      mouseRef.current.on = false;
       label.hidden = true;
       redraw();
     };

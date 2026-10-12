@@ -268,6 +268,26 @@ function Overview({ text }: { text: string }) {
 }
 
 /** The front page: the lead beside a column of today's highlights and the index of pages. */
+
+/** Staggered line reveal for the front-page headline (first paint only; reduced motion shows at once). */
+function RevealTitle({ text }: { text: string }) {
+  const parts = text.split(/(\s+)/);
+  let i = 0;
+  return (
+    <span className="reveal-title">
+      {parts.map((part, idx) => {
+        if (!part.trim()) return <span key={idx}>{part}</span>;
+        const delay = Math.min(i++, 12) * 45;
+        return (
+          <span key={idx} className="reveal-title-word inline-block" style={{ animationDelay: `${delay}ms` }}>
+            {part}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; pages: Page[]; leadStory: ReportCitation | null; count: number }) {
   const daily = report.kind === "daily";
   // A weekly or monthly leading with an event: the event's own summary; its overview stands above (Overview).
@@ -297,10 +317,10 @@ function FrontPage({ report, pages, leadStory, count }: { report: ReportDetail; 
         <h2 className="order-1 mt-4 font-display text-[32px] font-semibold leading-[1.28] tracking-wide text-ink [text-wrap:balance] @[520px]:text-[40px] @[560px]:order-2 @[1040px]:text-[48px] @[1040px]:leading-[1.22]">
           {leadStory?.itemId ? (
             <IntentLink viewTransition to={`/items/${leadStory.itemId}`} className="transition-colors hover:text-accent">
-              {title}
+              <RevealTitle text={title} />
             </IntentLink>
           ) : (
-            title
+            <RevealTitle text={title} />
           )}
         </h2>
         {dek && (

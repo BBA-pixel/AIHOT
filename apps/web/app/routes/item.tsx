@@ -8,6 +8,7 @@ import { pageReuse } from "../lib/page-reuse";
 import { articleLd, breadcrumbLd, pageMeta, siteUrl, titled } from "../lib/seo";
 import { fullDateTime, relativeTime } from "../lib/format";
 import { markRead } from "../lib/local-state";
+import { toast as pushToast } from "../components/ui/Toast";
 import { SameEventBadge, SelectedBadge } from "../components/ui/Badge";
 import { ScoreLabel, shownScore } from "../components/ui/Score";
 import { SelectionExplainPanel } from "../components/ui/SelectionExplain";
@@ -141,25 +142,6 @@ async function shareOrCopy(item: Pick<SiteItemDetail, "id" | "title">): Promise<
 }
 
 /** A short line over the page's foot, gone after a moment. */
-function useToast(): [string | null, (text: string) => void] {
-  const [toast, setToast] = useState<string | null>(null);
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 1600);
-    return () => clearTimeout(t);
-  }, [toast]);
-  return [toast, setToast];
-}
-
-function Toast({ text }: { text: string | null }) {
-  if (!text) return null;
-  return (
-    <div role="status" className="fixed bottom-[calc(80px+env(safe-area-inset-bottom))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-ink px-4 py-2 text-[13px] text-bg shadow-[var(--shadow-pop)] lg:bottom-8">
-      {text}
-    </div>
-  );
-}
-
 export default function ItemPage() {
   const data = useLoaderData<typeof clientLoader>() as { item: SiteItemDetail } | Preview;
   if (data.item) return <ItemView key={`${data.item.id}:${data.item.bodyLanguage}`} item={data.item} />;
@@ -174,7 +156,6 @@ export default function ItemPage() {
 
 /** Phones, while the article loads: what the card showed, in the article's own places. */
 function ItemPreview({ preview }: { preview: FeedItemSummary }) {
-  const [toast, setToast] = useToast();
   const isX = preview.channel === "x" && !!preview.x;
   // Without a reliable date from the original, the card's time is when it was collected, and says so.
   const shownAt = preview.publishedAt ?? preview.timelineAt;
@@ -218,11 +199,10 @@ function ItemPreview({ preview }: { preview: FeedItemSummary }) {
         item={preview}
         originalLabel={isX ? "原推" : "原文"}
         onShare={async () => {
-          if ((await shareOrCopy(preview)) === "copied") setToast("链接已复制");
+          if ((await shareOrCopy(preview)) === "copied") pushToast("链接已复制");
         }}
       />
-      <Toast text={toast} />
-    </div>
+          </div>
   );
 }
 
@@ -255,8 +235,7 @@ function ItemView({ item }: { item: SiteItemDetail }) {
   const [posterOpen, setPosterOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [toast, setToast] = useToast();
-  useEffect(() => { markRead(item.id); }, [item.id]);
+    useEffect(() => { markRead(item.id); }, [item.id]);
   const closePoster = useCallback(() => setPosterOpen(false), []);
   const openPoster = () => {
     setPosterRequested(true);
@@ -264,12 +243,12 @@ function ItemView({ item }: { item: SiteItemDetail }) {
   };
   const share = async () => {
     const r = await shareOrCopy(item);
-    if (r === "copied") setToast("链接已复制");
+    if (r === "copied") pushToast("链接已复制");
   };
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(`${siteUrl()}/items/${item.id}`);
-      setToast("链接已复制");
+      pushToast("链接已复制");
     } catch {
       // clipboard unavailable
     }
@@ -279,9 +258,9 @@ function ItemView({ item }: { item: SiteItemDetail }) {
       const res = await fetch(`/items/${item.id}/markdown`);
       if (!res.ok) throw new Error(String(res.status));
       await navigator.clipboard.writeText(await res.text());
-      setToast("Markdown 已复制");
+      pushToast("Markdown 已复制");
     } catch {
-      setToast("复制失败，请在浏览器中打开后导出");
+      pushToast("复制失败，请在浏览器中打开后导出", "error");
     }
   };
 
@@ -611,7 +590,6 @@ function ItemView({ item }: { item: SiteItemDetail }) {
           <PosterSheet id={item.id} title={item.title} open={posterOpen} onClose={closePoster} />
         </Suspense>
       )}
-      <Toast text={toast} />
-    </div>
+          </div>
   );
 }
