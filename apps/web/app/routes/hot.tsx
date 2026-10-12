@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLoaderData } from "react-router";
 import { IntentLink } from "../components/ui/IntentLink";
 import type { HotEntryView, HotResponse } from "@aihot/contracts/site";
@@ -5,7 +6,7 @@ import { subjectAfter, withSubject } from "@aihot/site";
 import { cachedPage, loadOr404 } from "../lib/api.server";
 import { pageReuse } from "../lib/page-reuse";
 import { pageMeta } from "../lib/seo";
-import { monthDayTime } from "../lib/format";
+import { relativeTime } from "../lib/format";
 import { Badge } from "../components/ui/Badge";
 import { EmptyState } from "../components/ui/Page";
 import { IconChevronDown, IconInfo } from "../components/icons";
@@ -237,6 +238,23 @@ function showMethod() {
   method.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" });
 }
 
+
+/** "X 分钟前更新" that ticks every minute; swap animation when the label changes. */
+function UpdatedAgo({ at }: { at: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const text = relativeTime(at, now);
+  const shown = text === "刚刚" ? "刚刚更新" : text.endsWith("前") ? `${text}更新` : `${text} · 更新`;
+  return (
+    <span key={shown} className="anim-swap-in inline-block tabular-nums">
+      {shown}
+    </span>
+  );
+}
+
 export default function HotPage() {
   const { hot } = useLoaderData<typeof loader>();
   const [lead, ...rest] = hot.entries;
@@ -253,7 +271,7 @@ export default function HotPage() {
             {hot.computedAt && (
               <>
                 {" · "}
-                <span className="num">{monthDayTime(hot.computedAt)}</span> 更新
+                <UpdatedAgo at={hot.computedAt} />
               </>
             )}
           </>
@@ -278,7 +296,7 @@ export default function HotPage() {
         </div>
         {hot.computedAt && (
           <p className="text-[12px] text-ink-4">
-            <span className="num">{monthDayTime(hot.computedAt)}</span> 更新 · 按讨论热度排序
+            <UpdatedAgo at={hot.computedAt} /> · 按讨论热度排序
           </p>
         )}
       </header>

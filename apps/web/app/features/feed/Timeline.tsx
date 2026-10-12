@@ -118,11 +118,24 @@ export function DayHeader({ day, today, count, collapsed, onToggle, aside, index
  * One dated slot: the time, the rail (desktop) and the item. As on the original timeline, the rail is a
  * 1px line from this node's centre to the next one's, so the day reads as one continuous thread.
  */
-export function TimelineSlot({ at, children, fresh = false, delay = 0, dataKey }: { at: string; children: React.ReactNode; fresh?: boolean; delay?: number; dataKey?: string }) {
+export function TimelineSlot({ at, children, fresh = false, delay = 0, dataKey, dimmable = false }: { at: string; children: React.ReactNode; fresh?: boolean; delay?: number; dataKey?: string; dimmable?: boolean }) {
+  const liRef = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!dimmable) return;
+    const el = liRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([e]) => el.classList.toggle("read-away", !!e && !e.isIntersecting && e.boundingClientRect.top < 0),
+      { threshold: 0, rootMargin: "-10% 0px -10% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [dimmable]);
   return (
     <li
+      ref={liRef}
       data-card-key={dataKey}
-      className={`group/slot bleed touch:has-[a:active]:bg-bg-sunk/70 lg:mx-0 lg:px-0 lg:touch:has-[a:active]:bg-transparent ${fresh ? "animate-fade-up" : ""}`}
+      className={`group/slot bleed touch:has-[a:active]:bg-bg-sunk/70 lg:mx-0 lg:px-0 lg:touch:has-[a:active]:bg-transparent ${fresh ? "animate-fade-up" : ""} ${dimmable ? "read-dimmable" : ""}`}
       style={fresh ? { animationDelay: `${delay}ms` } : undefined}
     >
       {/* Phones: the row without the rail (the item shows its time); a hairline between rows. */}
@@ -315,7 +328,7 @@ export function Timeline({ initial, filters }: { initial: TimelineResponse; filt
                     const fresh = freshKeys.has(c.key);
                     const delay = fresh ? Math.min(order++, 10) * 40 : 0;
                     return (
-                      <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay}>
+                      <TimelineSlot key={c.key} dataKey={c.key} at={c.anchorAt} fresh={fresh} delay={delay} dimmable={readSet.has(c.item.id)}>
                         <FeedItem item={c.item} group={c.group} filters={filters} read={readSet.has(c.item.id)} onOpen={markRead} at={c.anchorAt} />
                       </TimelineSlot>
                     );

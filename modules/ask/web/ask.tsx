@@ -303,6 +303,33 @@ function stepsFromSnap(raw: Array<{ type: string; payload?: Record<string, unkno
   return steps;
 }
 
+
+const SUGGESTIONS = [
+  "最近有什么游戏热点？",
+  "今天精选里最值得看的是什么？",
+  "为什么这条会上热点榜？",
+  "某款新游最近评价怎么样？",
+];
+
+function SuggestionChips({ onPick, hidden }: { onPick: (q: string) => void; hidden: boolean }) {
+  if (hidden) return null;
+  return (
+    <ul className="mb-4 flex flex-wrap gap-2" aria-label="试试这样问">
+      {SUGGESTIONS.map((q, i) => (
+        <li key={q} className="ask-chip" style={{ animationDelay: `${i * 40}ms` }}>
+          <button
+            type="button"
+            onClick={() => onPick(q)}
+            className="rounded-full border border-line-soft bg-surface px-3 py-1.5 text-[12.5px] text-ink-2 transition-[transform,border-color,color] duration-[var(--dur-2)] hover:-translate-y-px hover:border-accent/40 hover:text-accent"
+          >
+            {q}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export default function AskPage() {
   const { sessionId, ensure, reset } = useSessionId();
   const [input, setInput] = useState("");
@@ -577,6 +604,7 @@ export default function AskPage() {
         </div>
       </div>
 
+      <SuggestionChips hidden={bubbles.length > 0 || busy} onPick={(q) => { setInput(q); void send(q); }} />
       {error && <p className="mt-3 text-[13px] text-hot">{error}</p>}
 
       <div className="sticky bottom-0 z-10 mt-6 -mx-1 border-t border-line bg-bg/95 px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">

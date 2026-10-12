@@ -10,7 +10,8 @@ export function SelectionExplainPanel({ explain }: { explain: SelectionExplainDa
   const showScore = ITEM_COPY.showScore && explain.score !== null;
 
   return (
-    <div className="space-y-3 text-[12.5px] leading-relaxed text-ink-3">
+    <div className="anim-drop-in explain-panel relative space-y-3 rounded-tile border border-line-soft bg-bg-sunk/40 px-3 py-3 text-[12.5px] leading-relaxed text-ink-3">
+      <span aria-hidden="true" className="explain-arrow absolute -top-1.5 left-4 size-3 rotate-45 border-l border-t border-line-soft bg-bg-sunk/40" />
       {(showScore || explain.threshold !== null || explain.sourceTierLabel) && (
         <p>
           {showScore && (

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { toast } from "../components/ui/Toast";
 import { Link, useSearchParams } from "react-router";
 import { SITE } from "@aihot/site";
 import { Presence } from "../components/ui/Presence";
@@ -151,6 +152,7 @@ export default function FeedbackPage() {
       if (!res.ok) return setState({ kind: "error", message: body.detail ?? "提交失败，请稍后再试。" });
       writeDraft(null);
       setState({ kind: "done", id: body.id });
+      toast("反馈已提交");
       setDraft({ content: "", email: "", pageUrl: "" });
       setShot(null);
     } catch {

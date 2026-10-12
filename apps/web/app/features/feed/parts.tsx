@@ -1,6 +1,7 @@
 // Small building blocks shared by feed items, detail pages and lists.
 import { useState } from "react";
 import type { FeedItemSummary, MediaView } from "@aihot/contracts/site";
+import { toast } from "../../components/ui/Toast";
 import { IconBookmark } from "../../components/icons";
 import { SourceAvatar } from "../../components/ui/SourceAvatar";
 import { Lightbox } from "../../components/ui/Lightbox";
@@ -62,7 +63,10 @@ export function useStar(item: Starrable) {
       id: item.id, title: item.title, summary: item.summary, sourceName: item.source.name,
       publishedAt: item.publishedAt, score: item.score, aiSelected: item.selected,
     });
-    if (added) setPulse((p) => p + 1);
+    if (added) {
+      setPulse((p) => p + 1);
+      toast("已加入收藏");
+    } else toast("已取消收藏", "info");
   };
   return { on, toggle, pulse };
 }
