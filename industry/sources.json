@@ -940,6 +940,85 @@
       "syndicate_fulltext": false
     },
     {
+      "id": "json-vct-news",
+      "name": "无畏契约电竞·VCT资讯",
+      "kind": "json_list",
+      "config": {
+        "url": "https://apps.game.qq.com/cmc/cross?serviceId=329&source=val_gw&typeids=1&logic=or&tagids=126584,126585,126586,126785&start=0&limit=15&sortby=sIdxTime",
+        "itemsPath": "data.items",
+        "titlePaths": [
+          "sTitle"
+        ],
+        "publishedAtPath": "sIdxTime",
+        "publishedAtUtcOffset": "+08:00",
+        "externalIdPath": "iDocID",
+        "urlTemplate": "https://vct.qq.com/news_details.html?docId={iDocID}",
+        "ingestNoiseFilter": {
+          "keepIfMatches": [
+            "版本更新",
+            "版本前瞻",
+            "新版本",
+            "更新说明",
+            "补丁",
+            "特工",
+            "地图",
+            "资料片",
+            "停服",
+            "停运",
+            "关服",
+            "赛季",
+            "定档",
+            "公测",
+            "上线时间",
+            "dlc",
+            "新角色",
+            "新英雄",
+            "平衡",
+            "联动",
+            "回归",
+            "无畏契约",
+            "VALORANT",
+            "Valorant",
+            "VCT",
+            "电竞"
+          ],
+          "dropMarkersTitleOnly": [
+            "封禁",
+            "活动",
+            "皮肤",
+            "装扮",
+            "祈愿",
+            "跃迁",
+            "召唤",
+            "周免",
+            "礼包",
+            "限时销售",
+            "夜市",
+            "商城",
+            "涂鸦",
+            "特权体验",
+            "网吧"
+          ]
+        },
+        "_aihot": {
+          "initialBackfillLimit": 8,
+          "initialBackfillMonths": 1
+        }
+      },
+      "tier": "T1",
+      "owner_entity_id": "valorant",
+      "participation_mode": "editorial",
+      "interval_minutes": 60,
+      "tags": [
+        "官方",
+        "无畏契约",
+        "电竞",
+        "射击"
+      ],
+      "site_fulltext": false,
+      "syndicate_fulltext": false
+    },
+    {
       "id": "web-playvalorant-news",
       "name": "VALORANT 官方新闻（繁中）",
       "kind": "web_list",
