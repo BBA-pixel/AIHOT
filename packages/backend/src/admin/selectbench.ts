@@ -33,6 +33,7 @@ export async function importSelectBenchRun(report: unknown, label: string, actor
   const names = Object.keys(models).filter((m) => models[m]?.summary);
   if (!names.length) throw new Error("report has no model summaries");
   // Reject invalid evidence before writing a run; the same case may appear once per model.
+  const goldByCase = new Map<string, string>();
   for (const m of names) {
     const cases = models[m]!.cases;
     if (cases === undefined) continue;
@@ -43,6 +44,11 @@ export async function importSelectBenchRun(report: unknown, label: string, actor
       if (ids.has(c.caseId)) throw new Error(`${m}: duplicate caseId ${c.caseId}`);
       ids.add(c.caseId);
       if (!["select", "reject", "either"].includes(c.gold)) throw new Error(`${m}: ${c.caseId}: invalid gold decision`);
+      const previousGold = goldByCase.get(c.caseId);
+      if (previousGold !== undefined && previousGold !== c.gold) {
+        throw Object.assign(new Error(`${m}: ${c.caseId}: conflicting gold decision across models`), { statusCode: 400 });
+      }
+      goldByCase.set(c.caseId, c.gold);
     }
   }
   const meta = r.meta ?? {};

@@ -82,6 +82,8 @@ node --env-file=.env scripts/eval-selection.ts --gold .data/gold.jsonl --split d
 
 在后台 SelectBench 里逐条看判错的资料和模型给的理由：
 
+上传多模型报告时，同一 `caseId` 在各模型下须使用相同的 `gold` 标注，模型的 `decision` 可以不同。标注冲突的报告会在写入前被拒绝，避免同一条资料在并排比较时出现不同的人工答案；不提供逐例 `cases` 的报告仍可导入。
+
 - 该选没选上，多半是评分标准里没说清它为什么重要：在 `selection-score.md` 里把这类价值写进“必须正常评价”的部分，给出例子。
 - 不该选却选上了，多半是噪声没压住：写进“必须压住”的部分。
 - 整体偏松或偏紧，而判错的条目分数都贴着门槛，再调 `industry/selection.ts` 的门槛。
