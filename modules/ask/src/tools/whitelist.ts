@@ -3,10 +3,12 @@ import { z } from "zod";
 import { PUBLIC_API_CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
 import { mcpToolName } from "@aihot/contracts/mcp";
 import {
-  latestAnswer, searchAnswer, searchItems, hotAnswer, storyAnswer, type AgentWindow,
+  latestAnswer, searchAnswer, searchItems, hotAnswer, storyAnswer, dailyAnswer, type AgentWindow,
 } from "@aihot/backend/publication/agent";
 import { v1Items } from "@aihot/backend/publication/v1";
 import { resolveStory, v1HotTopics, v1Story } from "@aihot/backend/publication/stories";
+import { dailyWithNotes } from "@aihot/backend/publication/reports";
+import { isValidDate } from "@aihot/contracts/time";
 import { explainSelection } from "./explain-selection.ts";
 import { explainHot } from "./explain-hot.ts";
 
@@ -17,6 +19,7 @@ export const ASK_TOOL_NAMES = [
   "get_story",
   "explain_selection",
   "explain_hot",
+  "get_daily",
 ] as const;
 
 export type AskToolName = (typeof ASK_TOOL_NAMES)[number];
@@ -28,6 +31,7 @@ export const ASK_TOOL_LABELS_ZH: Record<AskToolName, string> = {
   get_story: "查事件进展",
   explain_selection: "解释入选",
   explain_hot: "解释上榜",
+  get_daily: "查日报",
 };
 
 const categorySchema = z.enum(PUBLIC_API_CATEGORY_KEYS as unknown as [string, ...string[]]).optional();
@@ -58,6 +62,9 @@ const SCHEMAS: Record<AskToolName, z.ZodType> = {
   explain_hot: z.object({
     public_id: z.string().min(1).max(128).describe("事件公开 ID，须来自 get_hot_topics。"),
   }).strict(),
+  get_daily: z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("可选真实日历日期 YYYY-MM-DD；省略则取最新一期日报。"),
+  }).strict(),
 };
 
 const ASK_TOOL_DESCRIPTIONS: Record<AskToolName, string> = {
@@ -67,6 +74,7 @@ const ASK_TOOL_DESCRIPTIONS: Record<AskToolName, string> = {
   get_story: "查某一热点事件的来龙去脉与报道时间线；public_id 必须来自 get_hot_topics。",
   explain_selection: "解释某条目为何入选精选（评分与门槛说明）。",
   explain_hot: "解释某事件为何上热点榜。",
+  get_daily: "查本站编辑过的 AI 日报（固定成品，不是过去24小时滚动列表）。省略 date 取最新一期；指定 date=YYYY-MM-DD 取该日。问「今天日报／某日日报」用本工具，不要用 get_latest 冒充。",
 };
 
 /** OpenAI tool specs for the model (short names). */
@@ -272,6 +280,40 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
           }],
         };
       }
+        case "get_daily": {
+        const a = parsed.data as { date?: string };
+        if (a.date && !isValidDate(a.date)) {
+          return { ok: false, name: tool, errorCode: "invalid_arguments", message: `${a.date} 不是有效日期。` };
+        }
+        const res = await dailyWithNotes(a.date ?? "latest");
+        if (!res) {
+          return {
+            ok: false,
+            name: tool,
+            errorCode: "not_found",
+            message: a.date ? `没有 ${a.date} 的公开日报。` : "还没有公开日报。",
+          };
+        }
+        const date = res.body.report.date as string;
+        const text = truncate(dailyAnswer(res.body.report, "mcp", res.notes));
+        return {
+          ok: true,
+          name: tool,
+          text,
+          structured: { date, count: 1 },
+          evidence: [{
+            kind: "tool_note",
+            objectId: date,
+            title: `日报 · ${date}`,
+            sourceName: null,
+            publishedAt: (res.body.report.generatedAt as string | null) ?? null,
+            siteUrl: `/daily/${date}`,
+            originalUrl: null,
+            toolName: tool,
+            rawRef: { date },
+          }],
+        };
+      }
     }
   } catch (e) {
     return { ok: false, name, errorCode: "internal_error", message: "工具执行失败。" };
@@ -285,6 +327,10 @@ export function friendlyStepSummary(exec: ToolExecOk): string {
   if (exec.name === "get_latest") {
     const scope = exec.structured.mode === "all" ? "公开动态" : "精选";
     return count > 0 ? `拉取近期${scope} ${count} 条` : "暂无结果";
+  }
+  if (exec.name === "get_daily") {
+    const date = typeof exec.structured.date === "string" ? exec.structured.date : "";
+    return date ? `已加载 ${date} 日报` : "已加载日报";
   }
   const n = exec.evidence.length;
   if (n > 0) return `找到 ${n} 条相关资料`;
