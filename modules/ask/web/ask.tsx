@@ -133,6 +133,7 @@ const TOOL_LABEL_ZH: Record<string, string> = {
   get_story: "查事件进展",
   explain_selection: "解释入选",
   explain_hot: "解释上榜",
+  get_daily: "查日报",
 };
 
 function toolLabel(tool: string, labelZh?: string) {
