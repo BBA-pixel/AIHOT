@@ -7,10 +7,10 @@ import { ASK_TOOL_NAMES, ASK_TOOL_LABELS_ZH, friendlyStepSummary } from "../src/
 import { logicalKeyFor } from "@aihot/backend/providers/receipts";
 import { sha256, stableJson } from "@aihot/backend/lib/ids";
 
-test("whitelist is exactly six tools and excludes digests", () => {
-  assert.deepEqual([...ASK_TOOL_NAMES], ["get_latest", "search", "get_hot_topics", "get_story", "explain_selection", "explain_hot"]);
-  assert.ok(!ASK_TOOL_NAMES.includes("get_daily" as never));
-  assert.equal(Object.keys(ASK_TOOL_LABELS_ZH).length, 6);
+test("whitelist is exactly seven tools and includes get_daily", () => {
+  assert.deepEqual([...ASK_TOOL_NAMES], ["get_latest", "search", "get_hot_topics", "get_story", "explain_selection", "explain_hot", "get_daily"]);
+  assert.ok(ASK_TOOL_NAMES.includes("get_daily"));
+  assert.equal(Object.keys(ASK_TOOL_LABELS_ZH).length, 7);
 });
 
 test("citation check fails on forged numbers", () => {

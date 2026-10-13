@@ -35,7 +35,7 @@ test("explain_hot rejects bad public_id", async () => {
 });
 
 test("whitelist rejects unknown tool", async () => {
-  const r = await executeAskTool("get_daily", "{}");
+  const r = await executeAskTool("not_a_tool", "{}");
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.errorCode, "unknown_tool");
 });

@@ -14,7 +14,7 @@ const part: AgentPart = {
     ],
   },
   resources: [
-    ["AI 问答", "/ask", "站内六工具流式问答"],
+    ["AI 问答", "/ask", "站内七工具流式问答"],
   ],
 };
 

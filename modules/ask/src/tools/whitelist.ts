@@ -1,4 +1,4 @@
-// In-site Agent whitelist: six tools only. Adapts publication/agent + explain tools; no HTTP round-trip.
+// In-site Agent whitelist: seven tools. Adapts publication/agent + explain tools; no HTTP round-trip.
 import { z } from "zod";
 import { PUBLIC_API_CATEGORY_KEYS } from "@aihot/contracts/taxonomy";
 import { mcpToolName } from "@aihot/contracts/mcp";
@@ -280,7 +280,7 @@ export async function executeAskTool(name: string, argsJson: string): Promise<To
           }],
         };
       }
-        case "get_daily": {
+      case "get_daily": {
         const a = parsed.data as { date?: string };
         if (a.date && !isValidDate(a.date)) {
           return { ok: false, name: tool, errorCode: "invalid_arguments", message: `${a.date} 不是有效日期。` };

@@ -61,7 +61,7 @@ export default defineServerModule({
     api: [
       "- GET /api/v1/agent/explain-selection?article_id= — 资讯入选解释（Markdown）",
       "- GET /api/v1/agent/explain-hot?public_id= — 事件上榜解释（Markdown）",
-      "- /ask — 站内 AI 问答（六工具白名单）",
+      "- /ask — 站内 AI 问答（七工具白名单）",
     ],
     pages: ["- [AI 问答](/ask)：基于站内只读工具的流式问答"],
     usage: [
