@@ -1,6 +1,8 @@
 // Failure cases: fresh hot signals hide an editorial collection outage; intermittent failures vanish
 // after one success; zero-output counts stop at the display limit; publisher attribution makes a
 // working discovery source look idle; missing dates/repeated edits in signals are called bad articles.
+// And the quiet judgment reads each source's own rhythm: a monthly blog is not late after a week, a
+// daily one is, and a source with too little history stays visible rather than being called healthy.
 import { tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
@@ -9,6 +11,7 @@ import { upsertMaterial } from "@aihot/backend/content/materials";
 import { getBoss, stopBoss } from "@aihot/backend/jobs/queue";
 import { collectFindings } from "@aihot/backend/operations/alerts";
 import { sourceHealthWeekly } from "@aihot/backend/operations/reports";
+import { sourceHealth, rhythmText } from "@aihot/backend/sources/health";
 
 const T = tag();
 const now = Date.now();
@@ -27,6 +30,22 @@ async function source(id: string, mode = "editorial", created = old) {
 async function material(sourceId: string, suffix: string, publishedAt: Date | null = new Date(now)) {
   return upsertMaterial({ sourceId, title: suffix, url: `https://example.test/${T}/${suffix}`, via: "fetch", publishedAt, bodyStatus: "none" });
 }
+/** Items this source's own output is dated to, on the given days before now (old enough not to count as
+ * fresh discoveries): the only thing its rhythm is read from. */
+async function datedItems(sourceId: string, daysAgo: number[]) {
+  for (const [i, days] of daysAgo.entries()) {
+    const at = new Date(now - days * 86400_000);
+    const url = `https://example.test/${sourceId}/${i}`;
+    await sql`INSERT INTO articles(id,source_id,identity_key,url,title,published_at,discovered_at,timeline_at)
+      VALUES(${`${sourceId}-d${i}`},${sourceId},${`url:${url}`},${url},${`${sourceId} ${i}`},${at},${new Date(now - 30 * 86400_000)},${at})`;
+  }
+}
+async function failedRuns(sourceId: string, times: number, error = "HTTP 503") {
+  await sql`INSERT INTO fetch_runs(source_id,started_at,finished_at,status,found_count,new_count,error)
+    SELECT ${sourceId}, ${new Date(now)}::timestamptz - i * interval '1 hour', ${new Date(now)}::timestamptz - i * interval '1 hour',
+      'failed', 1, 0, ${error} FROM generate_series(1,${times}) i`;
+}
+const quietGroup = async (mode = "editorial") => (await sourceHealth(now)).find(g => g.mode === mode)!;
 
 test("hot-signal activity does not hide editorial collection stopping", async () => {
   const editorial = await source("editorial", "editorial", new Date(now));
@@ -119,4 +138,50 @@ test("saved detail budget waits and shutdowns do not alert, while HTTP errors an
   assert.ok(!finding.detail!.includes(shutdown));
   assert.ok(finding.detail!.includes(`${mixed}）：近 7 天 2 次`));
   assert.ok(finding.detail!.includes(`${legacy}）：近 7 天 1 次`));
+});
+
+test("a low-frequency source quiet for a week is not late, while a daily one is", async () => {
+  const monthly = await source("monthly");
+  const daily = await source("daily");
+  // One item a month, the newest ten days ago: quiet, but inside its own rhythm.
+  await datedItems(monthly, [10, 40, 70, 89]);
+  // One a day until a week ago: the same silence is seven times its own gap.
+  await datedItems(daily, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+  const group = await quietGroup();
+  assert.ok(!group.overdue.includes(group.sources.find(s => s.id === monthly)!), "a monthly blog is not overdue after ten days");
+  assert.ok(!group.silent.some(s => s.id === monthly), "and it is not reported at all");
+  assert.ok(group.overdue.some(s => s.id === daily), "a daily source quiet for a week is overdue");
+  const finding = (await collectFindings(now)).find(f => f.key === "sources.overdue.editorial");
+  assert.match(finding!.title, /超出自身更新节奏/);
+  assert.match(finding!.detail!, new RegExp(`${daily}）：近 7 天没有新内容，平时约 1 天一条（7 倍）`));
+  assert.match(finding!.detail!, /先对照原站/);
+});
+
+test("a source without enough history to have a rhythm stays visible instead of being called fine", async () => {
+  const thin = await source("thin");
+  const never = await source("never");
+  await datedItems(thin, [8, 38]);
+  const group = await quietGroup();
+  assert.ok(group.unknown.some(s => s.id === thin), "two dated days are not a rhythm");
+  assert.ok(group.unknown.some(s => s.id === never), "a source that never produced anything is visible too");
+  assert.ok(!group.overdue.some(s => s.id === thin || s.id === never));
+  assert.match(rhythmText(group.unknown.find(s => s.id === thin)!), /近 7 天 \d+ 次抓取、0 条新内容；可比较的历史只有 2 天/);
+  assert.match(rhythmText(group.unknown.find(s => s.id === never)!), /近 7 天 \d+ 次抓取、0 条新内容；从未收到过内容/);
+  const finding = (await collectFindings(now)).find(f => f.key === "sources.silent.editorial");
+  assert.match(finding!.title, /7 天没有新内容/);
+  assert.match(finding!.detail!, /历史太少或从未收到内容/);
+});
+
+test("collection failures stay reported on their own, also when the source is past its rhythm", async () => {
+  const broken = await source("broken");
+  await datedItems(broken, [8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+  await failedRuns(broken, 6);
+  await sql`UPDATE sources SET health = 'failing', fail_count = 6 WHERE id = ${broken}`;
+  const group = await quietGroup();
+  assert.ok(group.failing.some(s => s.id === broken), "consecutive failures keep their own follow-up");
+  assert.ok(group.unstable.some(s => s.id === broken), "and the intermittent-failure one");
+  assert.ok(group.overdue.some(s => s.id === broken), "a failed source past its rhythm is not excused by its silence");
+  const findings = await collectFindings(now);
+  assert.ok(findings.find(f => f.key === "sources.failing.editorial")!.detail!.includes(broken));
+  assert.ok(findings.find(f => f.key === "sources.overdue.editorial")!.detail!.includes(broken));
 });

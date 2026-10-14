@@ -15,7 +15,7 @@ import { backupConfigured } from "./backup.ts";
 import { GROUPING_WARN_AFTER_MS, waitingSelectedNews } from "./grouping.ts";
 import { upstreamFindings } from "../media/upstream.ts";
 import { responder, serverModules } from "../modules.ts";
-import { sourceHealth, sourceHealthList } from "../sources/health.ts";
+import { rhythmText, sourceHealth, sourceHealthList } from "../sources/health.ts";
 
 const REPEAT_MS: Record<Exclude<Level, "later">, number> = { now: 3600_000, today: 24 * 3600_000 };
 
@@ -165,9 +165,13 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
         key: `sources.unstable.${group.mode}`, level: "later", title: `${group.name}有 ${group.unstable.length} 个信源反复抓取失败`,
         detail: sourceHealthList(group.unstable, s => `近 7 天失败 ${s.failed}/${s.runs} 次`) + "；即使最近成功也需检查，避免继续漏收",
       });
-      if (group.silent.length) out.push({
-        key: `sources.silent.${group.mode}`, level: "later", title: `${group.name}有 ${group.silent.length} 个信源 7 天未发现新内容`,
-        detail: sourceHealthList(group.silent, s => `近 7 天 ${s.runs} 次抓取、0 条新发现`) + "；需对照原站，区分低频更新与采集失效",
+      if (group.overdue.length) out.push({
+        key: `sources.overdue.${group.mode}`, level: "later", title: `${group.name}有 ${group.overdue.length} 个信源超出自身更新节奏`,
+        detail: sourceHealthList(group.overdue, rhythmText) + "；先对照原站，区分采集失效与它自己变慢",
+      });
+      if (group.unknown.length) out.push({
+        key: `sources.silent.${group.mode}`, level: "later", title: `${group.name}有 ${group.unknown.length} 个信源 7 天没有新内容`,
+        detail: sourceHealthList(group.unknown, rhythmText) + "；历史太少或从未收到内容，判断不了节奏，仍需留意",
       });
       if (group.quality.length) out.push({
         key: `sources.quality.${group.mode}`, level: "later", title: `${group.name}有 ${group.quality.length} 个信源需要核实文章质量`,

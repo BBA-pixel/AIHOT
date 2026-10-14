@@ -3,7 +3,7 @@
 import { sql } from "../db.ts";
 import { sendAlert } from "../notify/feishu.ts";
 import { serverModules } from "../modules.ts";
-import { sourceHealth, sourceHealthList } from "../sources/health.ts";
+import { rhythmText, sourceHealth, sourceHealthList } from "../sources/health.ts";
 
 /** The change from b to a: "+12%", "—" without a b. Also the modules' reports. */
 export const pct = (a: number, b: number) => (b ? `${a >= b ? "+" : ""}${(((a - b) / b) * 100).toFixed(0)}%` : "—");
@@ -35,17 +35,19 @@ export async function sourceHealthWeekly(now = Date.now()) {
   // The modules' own collectors, a line each.
   for (const m of serverModules()) if (m.sourceHealth) lines.push(...(await m.sourceHealth(now)));
   for (const group of groups) {
-    lines.push("", `${group.name}：${group.sources.length} 个在用信源；本周归属条目 ${n(group.sources.reduce((sum, s) => sum + s.items, 0))} 条；连续失败 ${group.failing.length} 个、反复失败 ${group.unstable.length} 个、7 天无新发现 ${group.silent.length} 个`);
+    lines.push("", `${group.name}：${group.sources.length} 个在用信源；本周归属条目 ${n(group.sources.reduce((sum, s) => sum + s.items, 0))} 条；连续失败 ${group.failing.length} 个、反复失败 ${group.unstable.length} 个、超出自身更新节奏 ${group.overdue.length} 个、7 天没有新内容 ${group.unknown.length} 个`);
     if (group.failing.length) lines.push(`抓取失败：${sourceHealthList(group.failing, s => `连续失败 ${s.fail_count} 次${s.last_error ? `（${s.last_error}）` : ""}`, Infinity)}`);
     if (group.unstable.length) lines.push(`不稳定：${sourceHealthList(group.unstable, s => `失败 ${s.failed}/${s.runs} 次`, Infinity)}`);
-    if (group.silent.length) lines.push(`7 天无新发现（需对照原站，可能只是低频更新）：${sourceHealthList(group.silent, s => `${s.runs} 次抓取`, Infinity)}`);
+    if (group.overdue.length) lines.push(`超出自身更新节奏（先对照原站，区分采集失效与它自己变慢）：${sourceHealthList(group.overdue, rhythmText, Infinity)}`);
+    if (group.unknown.length) lines.push(`7 天没有新内容（历史太少或从未收到内容，判断不了节奏）：${sourceHealthList(group.unknown, rhythmText, Infinity)}`);
     if (group.quality.length) lines.push(`文章质量待核实：${sourceHealthList(group.quality, s => `缺发布时间 ${s.undated} 篇、反复修订 ${s.repeated} 篇`, Infinity)}`);
     if (group.detailFailures.length) lines.push(`详情补全失败：${sourceHealthList(group.detailFailures, s => `${s.detail_failures} 次`, Infinity)}`);
   }
   const failing = counts!.failing;
   const silent = groups.reduce((sum, g) => sum + g.silent.length, 0);
+  const overdue = groups.reduce((sum, g) => sum + g.overdue.length, 0);
   const followUp = counts!.failing > 0 || groups.some(g => g.failing.length || g.unstable.length || g.silent.length || g.quality.length || g.detailFailures.length);
   lines.push("", followUp ? "需要处理的话，把这条转给 AI；详情在后台“信源”与“运行”页。" : "没有需要处理的信源。");
   await sendAlert("📊 信源周报", lines);
-  return { failing, silent };
+  return { failing, silent, overdue };
 }
