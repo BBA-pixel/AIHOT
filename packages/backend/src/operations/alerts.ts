@@ -93,8 +93,11 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
           .join("；") + "，精选和热点会缺内容",
         heals: p!.waiting >= 10 ? "服务恢复后会自动补处理" : "不会，需要修好后重新处理这些文章",
         action: "转给 AI 处理",
-        detail: errors.map((e) => `${e.error}（${e.n}）`).join("；") || "没有记录错误",
-        since: p!.waiting >= 10 && p!.oldest ? p!.oldest : undefined,
+        // The oldest waiting article is the first fact a reader needs, but it is not when the backlog began:
+        // one article left over from days ago outlives every episode, and passing its discovery time as
+        // `since` made one message claim 47 hours for a backlog that built up in three. The alert's own
+        // first sighting is the episode's length (Finding.since), and the age is reported as a fact instead.
+        detail: [p!.oldest && `最老的一篇 ${beijingStamp(p!.oldest)} 收进`, errors.map((e) => `${e.error}（${e.n}）`).join("；") || "没有记录错误"].join("；"),
       });
     }
     out.push(...await dailyReportFindings(now));

@@ -27,7 +27,11 @@ before(async () => {
     const { articleId } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.com/${T}-${i}`, title: `stuck ${i}`, bodyStatus: "none", via: "fetch" });
     stuckIds.push(articleId);
   }
+  // One left over from yesterday: it outlives this episode, so it must not be what dates it.
+  const { articleId: straggler } = await upsertMaterial({ sourceId: SOURCE, url: `https://example.com/${T}-old`, title: "stuck since yesterday", bodyStatus: "none", via: "fetch" });
+  stuckIds.push(straggler);
   await sql`UPDATE articles SET discovered_at = now() - interval '3 hours', processing_state = 'new' WHERE id IN ${sql(stuckIds)}`;
+  await sql`UPDATE articles SET discovered_at = now() - interval '40 hours' WHERE id = ${straggler}`;
 });
 after(async () => {
   await stopBoss();
@@ -43,6 +47,12 @@ test("an outage is announced once, repeated hourly, and closed with one recovery
 
     let r = await checkAlerts(t0);
     assert.deepEqual(stuck(r.sent), ["content.process"]);
+    // The episode is dated from when it was first seen: the article left over from yesterday is a fact in
+    // the detail, not the start of a backlog that built up in the last three hours.
+    const [state] = await sql<{ value: Record<string, { since: string }> }[]>`SELECT value FROM settings WHERE key = 'alerts.state'`;
+    assert.equal(Date.parse(state!.value["content.process"]!.since), t0, "the episode is not dated by the oldest waiting article");
+    const finding = (await collectFindings(t0)).find((f) => f.key === "content.process")!;
+    assert.match(finding.detail!, /最老的一篇 .* 收进/);
     r = await checkAlerts(t0 + 50 * 60_000);
     assert.deepEqual(stuck(r.sent), [], "no repeat within the hour");
     r = await checkAlerts(t0 + 61 * 60_000);
