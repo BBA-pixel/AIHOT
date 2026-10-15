@@ -222,7 +222,7 @@ test("output older than the window is not comparable history, and reads apart fr
   assert.equal(neverRow.ever_output, false);
   assert.match(rhythmText(neverRow), /从未收到过内容/);
   const finding = (await collectFindings(now)).find(f => f.key === "sources.silent.editorial")!;
-  assert.match(finding.detail!, /\d+ 个在近 90 天内没有可比较的产出、\d+ 个从未收到过内容/);
+  assert.match(finding.detail!, /\d+ 个在近 90 天内的产出历史不足以判断节奏、\d+ 个从未收到过内容/);
 });
 
 test("collection failures stay reported on their own, also when the source is past its rhythm", async () => {
@@ -237,4 +237,36 @@ test("collection failures stay reported on their own, also when the source is pa
   const findings = await collectFindings(now);
   assert.ok(findings.find(f => f.key === "sources.failing.editorial")!.detail!.includes(broken));
   assert.ok(findings.find(f => f.key === "sources.overdue.editorial")!.detail!.includes(broken));
+});
+
+
+test("an attributed discovery is historical output even without publisher-owned articles", async () => {
+  const publisher = await source("history-publisher");
+  const collector = await source("history-collector");
+  await datedItems(publisher, [20]);
+  await sql`INSERT INTO article_discoveries(article_id,source_id,via,discovered_at)
+    VALUES(${`${publisher}-d0`},${collector},'fetch',${new Date(now - 20 * 86400_000)})`;
+  const row = (await quietGroup()).sources.find(s => s.id === collector)!;
+  assert.equal(row.evidence_days, 1);
+  assert.equal(row.ever_output, true);
+  assert.doesNotMatch(rhythmText(row), /从未收到过内容/);
+  await sql`UPDATE article_discoveries SET discovered_at = ${new Date(now - 120 * 86400_000)} WHERE source_id = ${collector}`;
+  const outside = (await quietGroup()).sources.find(s => s.id === collector)!;
+  assert.equal(outside.evidence_days, 0);
+  assert.equal(outside.ever_output, true);
+  assert.match(rhythmText(outside), /窗口内没有可比较的产出/);
+});
+
+test("rhythm bounds publication days independently of discovery time", async () => {
+  const oldpub = await source("old-publication");
+  await datedItems(oldpub, [120]);
+  const futurepub = await source("future-publication");
+  await datedItems(futurepub, [-1]);
+  const olddiscovery = await source("old-discovery");
+  await datedItems(olddiscovery, [10]);
+  await sql`UPDATE articles SET discovered_at = ${new Date(now - 120 * 86400_000)} WHERE source_id = ${olddiscovery}`;
+  const group = await quietGroup();
+  assert.equal(group.sources.find(s => s.id === oldpub)!.evidence_days, 0);
+  assert.equal(group.sources.find(s => s.id === futurepub)!.evidence_days, 0);
+  assert.equal(group.sources.find(s => s.id === olddiscovery)!.evidence_days, 1);
 });

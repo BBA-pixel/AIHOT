@@ -175,7 +175,7 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
         // problem. Say which is which instead of one vague reason.
         const never = group.unknown.filter(s => !s.ever_output).length;
         const thin = group.unknown.length - never;
-        const why = [thin ? `${thin} 个在近 ${RHYTHM_WINDOW_DAYS} 天内没有可比较的产出` : "", never ? `${never} 个从未收到过内容` : ""]
+        const why = [thin ? `${thin} 个在近 ${RHYTHM_WINDOW_DAYS} 天内的产出历史不足以判断节奏` : "", never ? `${never} 个从未收到过内容` : ""]
           .filter(Boolean).join("、");
         out.push({
           key: `sources.silent.${group.mode}`, level: "later", title: `${group.name}有 ${group.unknown.length} 个信源 7 天没有新内容`,

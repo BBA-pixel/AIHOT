@@ -130,18 +130,16 @@ export async function sourceHealth(now = Date.now()) {
         percentile_cont(0.5) WITHIN GROUP (ORDER BY gap) FILTER (WHERE gap IS NOT NULL) AS median_gap_days,
         max(day) AS last_day
       FROM rhythm_gaps GROUP BY source_id
-    ), output AS (
-      -- Everything the source ever gave us, window aside: what tells a lapsed source from a broken one.
-      SELECT source_id, count(*)::int AS n FROM articles GROUP BY source_id
     )
     SELECT s.id,s.name,s.participation_mode,s.created_at,s.health,s.fail_count,s.last_ok_at,left(s.last_error,200) AS last_error,
       coalesce(r.runs,0) AS runs, coalesce(r.failed,0) AS failed, coalesce(r.detail_failures,0) AS detail_failures,
       coalesce(d.n,0) AS discoveries, coalesce(a.n,0) AS items, coalesce(a.undated,0) AS undated, coalesce(e.n,0) AS repeated,
       coalesce(g.evidence_days,0) AS evidence_days, g.median_gap_days,
-      (${new Date(now)}::date - g.last_day)::int AS quiet_days, coalesce(o.n,0) > 0 AS ever_output
+      (${new Date(now)}::date - g.last_day)::int AS quiet_days, (EXISTS (SELECT 1 FROM articles history WHERE history.source_id = s.id)
+        OR EXISTS (SELECT 1 FROM article_discoveries history WHERE history.source_id = s.id)) AS ever_output
     FROM sources s LEFT JOIN runs r ON r.source_id = s.id LEFT JOIN discoveries d ON d.source_id = s.id
       LEFT JOIN items a ON a.source_id = s.id LEFT JOIN repeated e ON e.source_id = s.id
-      LEFT JOIN rhythm_stats g ON g.source_id = s.id LEFT JOIN output o ON o.source_id = s.id
+      LEFT JOIN rhythm_stats g ON g.source_id = s.id
     WHERE s.enabled AND s.kind NOT IN ('external','mp_account') AND s.participation_mode IN ('editorial','hot_signal')
     ORDER BY s.name,s.id`;
   return Object.entries(SOURCE_USE_NAMES).map(([mode, name]) => {
