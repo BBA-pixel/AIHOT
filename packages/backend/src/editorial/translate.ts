@@ -41,7 +41,7 @@ const SYSTEM_POST = promptText("translate-post");
 
 export interface TranslateResult {
   articleId: string;
-  status: "translated" | "partial" | "skipped";
+  status: "translated" | "partial" | "skipped" | "failed";
   /** The article revision this result is about: the one read and translated, not a later one. */
   revision?: number;
   segments?: number;
@@ -168,7 +168,7 @@ export function unshield(translated: string, s: Shielded): string | null {
   return $.html().replace(/⟦(\d+)⟧/g, (_m, n: string) => s.tokens[Number(n)]!);
 }
 
-export async function translateArticle(articleId: string): Promise<TranslateResult> {
+export async function translateArticle(articleId: string, attemptTag?: string): Promise<TranslateResult> {
   const [row] = await sql<{ revision: number; channel: string; language: string | null; body_html: string | null; body_text: string | null; x_post: { text?: string } | null; title: string; selected: boolean; body_mode: string; visibility: string }[]>`
     SELECT a.revision, p.channel, a.language, a.body_html, a.body_text, a.x_post, p.title, p.selected, p.body_mode, p.visibility
     FROM publications p JOIN articles a ON a.id = p.article_id WHERE p.article_id = ${articleId}`;
@@ -182,9 +182,9 @@ export async function translateArticle(articleId: string): Promise<TranslateResu
     const meaningful = collapseWhitespace(text.replace(/https?:\/\/\S+/g, ""));
     if (isChinese(row.language, text)) return result({ status: "skipped", reason: "already Chinese" });
     if (meaningful.length < X_MIN_CHARS) return result({ status: "skipped", reason: "short post" });
-    const translated = await translateAll(articleId, row.revision, [text], SYSTEM_POST);
+    const translated = await translateAll(articleId, row.revision, [text], SYSTEM_POST, attemptTag);
     const [t] = translated.translations;
-    if (!t) return result({ status: "skipped", reason: "translation did not line up" });
+    if (!t) return result({ status: "failed", reason: "translation did not line up" });
     await store(articleId, row.revision, row.title, textToHtml(t), t, true, translated.receiptIds);
     return result({ status: "translated", segments: 1 });
   }
@@ -202,15 +202,17 @@ export async function translateArticle(articleId: string): Promise<TranslateResu
     budget -= html.length;
     chosen.push(el);
   }
+  // No model request was made when even the first block exceeds the text cap.
+  if (!chosen.length) return result({ status: "skipped", reason: "no batch translated" });
   const shielded = chosen.map((el) => shield($(el).html() ?? ""));
   const restore = (answers: Array<string | null>) => answers.map((t, i) => (t === null ? null : unshield(t, shielded[i]!)));
-  const first = await translateAll(articleId, row.revision, shielded.map((b) => b.html), SYSTEM_BODY);
+  const first = await translateAll(articleId, row.revision, shielded.map((b) => b.html), SYSTEM_BODY, attemptTag);
   const receiptIds = [...first.receiptIds];
   const translations = restore(first.translations);
   // Blocks whose answer dropped a link or an image are asked once more, on their own receipt.
   const missing = translations.flatMap((t, i) => (t === null ? [i] : []));
   if (missing.length) {
-    const again = await translateAll(articleId, row.revision, missing.map((i) => shielded[i]!.html), SYSTEM_BODY, "retry");
+    const again = await translateAll(articleId, row.revision, missing.map((i) => shielded[i]!.html), SYSTEM_BODY, attemptTag ? `${attemptTag}:retry` : "retry");
     receiptIds.push(...again.receiptIds);
     missing.forEach((i, k) => (translations[i] = again.translations[k] ? unshield(again.translations[k]!, shielded[i]!) : null));
   }
@@ -222,7 +224,7 @@ export async function translateArticle(articleId: string): Promise<TranslateResu
       done += 1;
     }
   });
-  if (!done) return result({ status: "skipped", reason: "no batch translated" });
+  if (!done) return result({ status: "failed", reason: "no batch translated" });
   const complete = done === blocks.length;
   const html = sanitizeBody($.html());
   await store(articleId, row.revision, row.title, html, cheerio.load(html, null, false).root().text().trim(), complete, receiptIds);
@@ -325,16 +327,18 @@ export async function translateQuotes(opts: { days?: number; limit?: number; bud
  */
 export async function translatePending(opts: { limit?: number; budgetMs?: number } = {}): Promise<{ done: TranslateResult[]; quotes: number }> {
   const started = Date.now();
-  const rows = await sql<{ article_id: string }[]>`
-    SELECT p.article_id FROM publications p JOIN articles a ON a.id = p.article_id
+  const rows = await sql<{ article_id: string; last_attempts: number | null; last_outcome: string | null; last_reason: string | null; last_request_tag: string | null }[]>`
+    SELECT p.article_id, t.attempts AS last_attempts, t.outcome AS last_outcome, t.reason AS last_reason,
+           t.request_tag AS last_request_tag
+    FROM publications p JOIN articles a ON a.id = p.article_id
     LEFT JOIN translations tr ON tr.article_id = p.article_id AND tr.lang = 'zh'
+    LEFT JOIN translation_attempts t ON t.article_id = p.article_id AND t.revision = a.revision
     WHERE p.selected AND p.visibility = 'public' AND p.body_mode = 'full' AND coalesce(a.language, '') <> 'zh'
       AND (p.discovered_at > now() - interval '3 days'
            OR EXISTS (SELECT 1 FROM article_revisions r WHERE r.article_id = a.id AND r.revision = a.revision AND r.revision > 1
                       AND r.created_at > now() - interval '3 days'))
       AND (tr.article_id IS NULL OR (tr.origin <> 'source' AND tr.revision < a.revision))
-      AND NOT EXISTS (SELECT 1 FROM translation_attempts t WHERE t.article_id = p.article_id AND t.revision = a.revision
-                      AND (t.outcome IN ('skipped', 'translated', 'partial') OR t.attempts >= 3))
+      AND (t.article_id IS NULL OR (t.outcome NOT IN ('skipped', 'translated', 'partial') AND t.attempts < 3))
     ORDER BY p.discovered_at DESC LIMIT ${opts.limit ?? 30}`;
   const done: TranslateResult[] = [];
   for (const r of rows) {
@@ -344,8 +348,13 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
     // The attempt is recorded against the revision actually read: when the text was revised while the
     // model was answering, the new revision still has no attempt and is translated on the next run.
     let revision: number | null = null;
+    // An unusable answer advances the paid request identity. Other failures keep
+    // the identity used last time so a received answer survives a failed DB commit.
+    const unusable = r.last_outcome === "failed"
+      && (r.last_reason === "translation did not line up" || r.last_reason === "no batch translated");
+    const attemptTag = unusable ? `alignment-retry-${r.last_attempts}` : r.last_request_tag ?? undefined;
     try {
-      const result = await translateArticle(r.article_id);
+      const result = await translateArticle(r.article_id, attemptTag);
       done.push(result);
       outcome = result.status;
       reason = result.reason ?? null;
@@ -362,11 +371,13 @@ export async function translatePending(opts: { limit?: number; budgetMs?: number
       reason = message.slice(0, 300);
     }
     await sql`
-      INSERT INTO translation_attempts (article_id, revision, attempts, outcome, reason)
-      SELECT ${r.article_id}, coalesce(${revision}::int, a.revision), 1, ${outcome}, ${reason} FROM articles a WHERE a.id = ${r.article_id}
+      INSERT INTO translation_attempts (article_id, revision, attempts, outcome, reason, request_tag)
+      SELECT ${r.article_id}, coalesce(${revision}::int, a.revision), 1, ${outcome}, ${reason}, ${attemptTag ?? null}
+      FROM articles a WHERE a.id = ${r.article_id}
       ON CONFLICT (article_id) DO UPDATE SET
         attempts = CASE WHEN translation_attempts.revision = EXCLUDED.revision THEN translation_attempts.attempts + 1 ELSE 1 END,
-        revision = EXCLUDED.revision, outcome = EXCLUDED.outcome, reason = EXCLUDED.reason, updated_at = now()`;
+        revision = EXCLUDED.revision, outcome = EXCLUDED.outcome, reason = EXCLUDED.reason,
+        request_tag = EXCLUDED.request_tag, updated_at = now()`;
   }
   const budgetMs = opts.budgetMs ?? 4 * 60_000;
   let quotes = 0;
