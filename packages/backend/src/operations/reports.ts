@@ -39,7 +39,7 @@ export async function sourceHealthWeekly(now = Date.now()) {
     if (group.failing.length) lines.push(`抓取失败：${sourceHealthList(group.failing, s => `连续失败 ${s.fail_count} 次${s.last_error ? `（${s.last_error}）` : ""}`, Infinity)}`);
     if (group.unstable.length) lines.push(`不稳定：${sourceHealthList(group.unstable, s => `失败 ${s.failed}/${s.runs} 次`, Infinity)}`);
     if (group.overdue.length) lines.push(`超出自身更新节奏（先对照原站，区分采集失效与它自己变慢）：${sourceHealthList(group.overdue, rhythmText, Infinity)}`);
-    if (group.unknown.length) lines.push(`7 天没有新内容（历史太少或从未收到内容，判断不了节奏）：${sourceHealthList(group.unknown, rhythmText, Infinity)}`);
+    if (group.unknown.length) lines.push(`7 天没有新内容（窗口内没有可比较的产出，或从未收到内容，判断不了节奏）：${sourceHealthList(group.unknown, rhythmText, Infinity)}`);
     if (group.quality.length) lines.push(`文章质量待核实：${sourceHealthList(group.quality, s => `缺发布时间 ${s.undated} 篇、反复修订 ${s.repeated} 篇`, Infinity)}`);
     if (group.detailFailures.length) lines.push(`详情补全失败：${sourceHealthList(group.detailFailures, s => `${s.detail_failures} 次`, Infinity)}`);
   }

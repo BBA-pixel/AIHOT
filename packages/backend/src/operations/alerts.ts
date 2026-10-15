@@ -15,7 +15,7 @@ import { backupConfigured } from "./backup.ts";
 import { GROUPING_WARN_AFTER_MS, waitingSelectedNews } from "./grouping.ts";
 import { upstreamFindings } from "../media/upstream.ts";
 import { responder, serverModules } from "../modules.ts";
-import { rhythmText, sourceHealth, sourceHealthList } from "../sources/health.ts";
+import { RHYTHM_WINDOW_DAYS, rhythmText, sourceHealth, sourceHealthList } from "../sources/health.ts";
 
 const REPEAT_MS: Record<Exclude<Level, "later">, number> = { now: 3600_000, today: 24 * 3600_000 };
 
@@ -169,10 +169,19 @@ export async function collectFindings(now = Date.now()): Promise<Finding[]> {
         key: `sources.overdue.${group.mode}`, level: "later", title: `${group.name}有 ${group.overdue.length} 个信源超出自身更新节奏`,
         detail: sourceHealthList(group.overdue, rhythmText) + "；先对照原站，区分采集失效与它自己变慢",
       });
-      if (group.unknown.length) out.push({
-        key: `sources.silent.${group.mode}`, level: "later", title: `${group.name}有 ${group.unknown.length} 个信源 7 天没有新内容`,
-        detail: sourceHealthList(group.unknown, rhythmText) + "；历史太少或从未收到内容，判断不了节奏，仍需留意",
-      });
+      if (group.unknown.length) {
+        // Two different problems share this list: a source whose output is all older than the window has
+        // no comparable history to time it by, and one that never gave us anything is a collection
+        // problem. Say which is which instead of one vague reason.
+        const never = group.unknown.filter(s => !s.ever_output).length;
+        const thin = group.unknown.length - never;
+        const why = [thin ? `${thin} 个在近 ${RHYTHM_WINDOW_DAYS} 天内没有可比较的产出` : "", never ? `${never} 个从未收到过内容` : ""]
+          .filter(Boolean).join("、");
+        out.push({
+          key: `sources.silent.${group.mode}`, level: "later", title: `${group.name}有 ${group.unknown.length} 个信源 7 天没有新内容`,
+          detail: sourceHealthList(group.unknown, rhythmText) + `；${why}，判断不了节奏，仍需留意`,
+        });
+      }
       if (group.quality.length) out.push({
         key: `sources.quality.${group.mode}`, level: "later", title: `${group.name}有 ${group.quality.length} 个信源需要核实文章质量`,
         detail: sourceHealthList(group.quality, s => `近 7 天缺发布时间 ${s.undated} 篇、反复修订 ${s.repeated} 篇`) + "；缺时间可能让新闻按历史文章处理，反复修订需核对正文是否混入变化内容",

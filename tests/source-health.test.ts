@@ -45,6 +45,17 @@ async function failedRuns(sourceId: string, times: number, error = "HTTP 503") {
     SELECT ${sourceId}, ${new Date(now)}::timestamptz - i * interval '1 hour', ${new Date(now)}::timestamptz - i * interval '1 hour',
       'failed', 1, 0, ${error} FROM generate_series(1,${times}) i`;
 }
+/** A first import: history that arrived in one delivery, so its publication dates reach further back
+ * than the day the source started producing anything we could see. */
+async function firstImport(sourceId: string, publishedDaysAgo: number[], discoveredDaysAgo: number) {
+  for (const [i, days] of publishedDaysAgo.entries()) {
+    const at = new Date(now - days * 86400_000);
+    const url = `https://example.test/${sourceId}/import-${i}`;
+    await sql`INSERT INTO articles(id,source_id,identity_key,url,title,published_at,discovered_at,timeline_at,backfill,backfill_reason)
+      VALUES(${`${sourceId}-i${i}`},${sourceId},${`url:${url}`},${url},${`${sourceId} import ${i}`},${at},
+        ${new Date(now - discoveredDaysAgo * 86400_000)},${at},true,'first-import')`;
+  }
+}
 const quietGroup = async (mode = "editorial") => (await sourceHealth(now)).find(g => g.mode === mode)!;
 
 test("hot-signal activity does not hide editorial collection stopping", async () => {
@@ -165,11 +176,53 @@ test("a source without enough history to have a rhythm stays visible instead of 
   assert.ok(group.unknown.some(s => s.id === thin), "two dated days are not a rhythm");
   assert.ok(group.unknown.some(s => s.id === never), "a source that never produced anything is visible too");
   assert.ok(!group.overdue.some(s => s.id === thin || s.id === never));
-  assert.match(rhythmText(group.unknown.find(s => s.id === thin)!), /近 7 天 \d+ 次抓取、0 条新内容；可比较的历史只有 2 天/);
+  assert.match(rhythmText(group.unknown.find(s => s.id === thin)!), /近 7 天 \d+ 次抓取、0 条新内容；窗口内可比较的历史只有 2 天/);
   assert.match(rhythmText(group.unknown.find(s => s.id === never)!), /近 7 天 \d+ 次抓取、0 条新内容；从未收到过内容/);
   const finding = (await collectFindings(now)).find(f => f.key === "sources.silent.editorial");
   assert.match(finding!.title, /7 天没有新内容/);
-  assert.match(finding!.detail!, /历史太少或从未收到内容/);
+  assert.match(finding!.detail!, /判断不了节奏，仍需留意/);
+});
+
+test("one first import is one output day, not one day per publication date", async () => {
+  const imported = await source("import-batch");
+  // Four historical articles delivered in one go: published 8, 9, 10 and 11 days ago, all found 8 days ago.
+  await firstImport(imported, [8, 9, 10, 11], 8);
+  const group = await quietGroup();
+  const row = group.sources.find(s => s.id === imported)!;
+  assert.equal(row.evidence_days, 1, "一次首次导入是一天产出");
+  assert.equal(row.median_gap_days, null, "一天没有间隔可算");
+  assert.ok(!group.overdue.some(s => s.id === imported), "不该按「超出自身节奏」处理");
+  assert.ok(group.unknown.some(s => s.id === imported), "而是历史不足，仍然列出来");
+  assert.match(rhythmText(row), /窗口内可比较的历史只有 1 天/);
+});
+
+test("a first import spread over months cannot hide a source that has since gone quiet", async () => {
+  const spread = await source("import-spread");
+  // The import reaches months back (80, 50 and 20 days ago) but arrived 20 days ago: one output day, so
+  // the silence since then is unmeasurable rather than "inside a wide rhythm".
+  await firstImport(spread, [80, 50, 20], 20);
+  const group = await quietGroup();
+  assert.equal(group.sources.find(s => s.id === spread)!.evidence_days, 1);
+  assert.ok(group.silent.some(s => s.id === spread), "判断不了节奏的源仍要看得见");
+  assert.ok(!group.overdue.some(s => s.id === spread));
+});
+
+test("output older than the window is not comparable history, and reads apart from never receiving anything", async () => {
+  const lapsed = await source("lapsed");
+  const never = await source("never-any");
+  // Delivered 120 days ago, nothing since: its only output day sits outside the window.
+  await firstImport(lapsed, [120], 120);
+  const group = await quietGroup();
+  const lapsedRow = group.sources.find(s => s.id === lapsed)!;
+  const neverRow = group.sources.find(s => s.id === never)!;
+  assert.equal(lapsedRow.evidence_days, 0, "窗口外的一天不计入产出日");
+  assert.equal(lapsedRow.ever_output, true, "但它确实产出过");
+  assert.match(rhythmText(lapsedRow), /近 90 天窗口内没有可比较的产出/);
+  assert.doesNotMatch(rhythmText(lapsedRow), /从未收到过内容/);
+  assert.equal(neverRow.ever_output, false);
+  assert.match(rhythmText(neverRow), /从未收到过内容/);
+  const finding = (await collectFindings(now)).find(f => f.key === "sources.silent.editorial")!;
+  assert.match(finding.detail!, /\d+ 个在近 90 天内没有可比较的产出、\d+ 个从未收到过内容/);
 });
 
 test("collection failures stay reported on their own, also when the source is past its rhythm", async () => {
