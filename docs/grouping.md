@@ -9,6 +9,12 @@
 - `UNRELATED`：不同的事，即使主体、产品或话题相同。
 - `ROUNDUP`：其中一方是包含多个话题的汇总。
 
+## 可选的 Jev 否决门
+
+默认关闭。设 `GROUP_JEV_ENABLED=true` 后，普通报道在向量召回之后、原归组模型之前，会逐个候选调用 OpenRouter 的 Jev（Decisions API）复判关系：Jev 判为 `UNRELATED` 的候选，本次不再被归并（关系结果被覆盖为 `UNRELATED`，后续合并、故事归属和故事连接都以此为准）；它的其他判断不直接决定归属，仍由原归组模型和复核决定。原归组请求照常运行、仍看到完整候选，因此费用与时延都会增加。
+
+关系定义和判断方法复用 `industry/prompts/group-definitions.md`、`group-method.md`；Jev 只看到标题、摘要前 360 字符、来源和发布时间。开启的硬性条件：`MODEL_CALLS_ENABLED` 已开、向量配置可用、`OPENROUTER_API_KEY` 已配置、后台预算里已给 `openrouter-jev` 配额度（没有预算行等于不限额，因此开启时会要求先配置）；缺一项会明确报错，不会悄悄退回无门控的流程。模型名用 `GROUP_JEV_MODEL`（默认 `typesafe/jev-1.13`）。每个请求照常经回执与预算熔断，费用按 OpenRouter 返回的 `usage.cost` 记账。临时关闭设回 `false` 并重启 worker 即可；已写入的归属不会自动回滚，需要纠正走人工纠正入口。
+
 ## 用自己的标注样本评测两两关系判断
 
 `scripts/eval-relations.ts` 只评测模型对两篇报道之间关系的判断。它直接复用站点归组时用的 `PAIR_SYSTEM`、`pairUser()`、`PairSchema` 和提示词版本，因此提示词变了，评测也跟着变。它不重新跑候选召回，也不把结果写回事件归组。

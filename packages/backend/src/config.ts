@@ -55,6 +55,10 @@ export const config = {
   // External-action valve: off unless the environment turns it on, like COLLECT_ENABLED (read by the
   // worker).
   modelCallsEnabled: bool("MODEL_CALLS_ENABLED", false),
+  // The Jev veto gate after embedding recall (events/group.ts): off unless the environment turns it
+  // on, and only on with its provider key, embeddings and an openrouter-jev budget row in place.
+  groupJevEnabled: bool("GROUP_JEV_ENABLED", false),
+  groupJevModel: str("GROUP_JEV_MODEL", "typesafe/jev-1.13"),
   devAdmin: env.DEV_AUTH_ROLE === "admin" ? { displayName: env.DEV_AUTH_DISPLAY_NAME || "Dev Admin" } : null,
   /** The admin password (at least 12 characters). Feishu sign-in below is optional. */
   adminPassword: env.ADMIN_PASSWORD || null,

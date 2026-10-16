@@ -5,7 +5,9 @@
 // Identity: one four-way relation judgement over the candidate
 // facts with their representative reports fully described (relate.ts); a merge that is not obvious
 // from similarity is confirmed by a second vendor before it is written; a development attaches only
-// to the fact that started its story, so stories do not grow by chaining. Manual corrections
+// to the fact that started its story, so stories do not grow by chaining. With GROUP_JEV_ENABLED,
+// Jev re-judges each recalled candidate before that (providers/jev.ts) and its UNRELATED answers
+// veto the candidate's relation; every other answer leaves the judgement to the models above. Manual corrections
 // (corrections.ts) are never overwritten; a revision keeps its membership unless an editor asks for a regroup or its
 // structure identifies it as composite. Composite material only mentions facts, never starts or
 // joins a fact/story and never supplies a root or bridge. When a
@@ -17,10 +19,12 @@
 // (isHistorical) founds no event. Runs serially (queue concurrency 1).
 import { modelFor } from "../editorial/models.ts";
 import { beijingDate } from "@aihot/contracts/time";
+import { config } from "../config.ts";
 import { sql, type Db, type Tx } from "../db.ts";
 import { newShortId, newUuid } from "../lib/ids.ts";
 import { chatJson } from "../providers/llm.ts";
 import { BudgetExceededError, completeReceipt } from "../providers/receipts.ts";
+import { REQUEST_TIMEOUT_MS, assertJevEnabled, decideRelation } from "../providers/jev.ts";
 import { embeddingsAvailable } from "../providers/embeddings.ts";
 import { isHistorical, STALE_ON_DISCOVERY_MS } from "../content/materials.ts";
 import { enqueue, QUEUES, shutdownSignal } from "../jobs/queue.ts";
@@ -30,15 +34,21 @@ import { consolidate, liveStory, type Consolidation } from "./consolidate.ts";
 import { mergeStoryInto } from "./merge.ts";
 import { candidateViews, cosine32, recallFacts, recallSelectedBackground, relatedPosts, vectorsFor } from "./recall.ts";
 import {
-  BATCH_SYSTEM, BATCH_PROMPT_VERSION, BatchSchema, PAIR_SYSTEM, PairSchema, RELATE_PROMPT_VERSION, SIGNAL_SYSTEM, SignalSchema, TIE_MIN_CONFIDENCE,
-  batchUser, completeDecisions, firmlyTied, pairUser, reportText, sameOccurrence, signalTarget, storyForDevelopment, verdictsByFact,
-  type CandidateView, type ReadingContext, type Relation, type ReportView, type SelectionValue, type Verdict,
+  BATCH_SYSTEM, BATCH_PROMPT_VERSION, BatchSchema, JEV_PROMPT_VERSION, JEV_VETO_POLICY_VERSION, PAIR_SYSTEM, PairSchema, RELATE_PROMPT_VERSION, SIGNAL_SYSTEM, SignalSchema, TIE_MIN_CONFIDENCE,
+  applyJevVeto, batchUser, completeDecisions, firmlyTied, jevQuestion, jevState, pairUser, reportText, sameOccurrence, signalTarget, storyForDevelopment, verdictsByFact,
+  type CandidateView, type JevVerdict, type ReadingContext, type Relation, type ReportView, type SelectionValue, type Verdict,
 } from "./relate.ts";
 
 const RECALL_MIN_COSINE = 0.6;
 const RECALL_TOP_FACTS = 10;
 /** A merge with a candidate less similar than this is confirmed by the review model before it is written. */
 const CONFIRM_BELOW_COSINE = 0.85;
+/**
+ * The whole Jev stage gets this much of the group job's 600 s expiry (queue.ts): each request is
+ * capped at what remains, so the stage stays inside the job budget or fails it for recovery — it
+ * never keeps a timed-out job requesting and writing.
+ */
+const JEV_STAGE_BUDGET_MS = 300_000;
 /** Discussion posts are judged only against clear candidates, and attach without a call when nearly identical. */
 const SIGNAL_MIN_COSINE = 0.72;
 const SIGNAL_AUTO_COSINE = 0.92;
@@ -80,6 +90,29 @@ async function judgeBatch(articleId: string, query: ReportView, cands: Candidate
     system: BATCH_SYSTEM, user: batchUser(query, cands, "新报道", reading), schema: BatchSchema.refine(value => completeDecisions(value.decisions, cands.length), "Every candidate requires exactly one decision"), temperature: 0, maxTokens: 400 + 120 * cands.length,
   });
   return { verdicts: verdictsByFact(res.data.decisions, cands), selection: cands.some(c => c.selected) || reading.length ? res.data.selection : NO_SELECTED_COVERAGE, receiptId: res.receiptId };
+}
+
+/**
+ * Jev's answer per candidate, one request each; a retry reuses the answers already received through
+ * their receipts. Any failure fails the task: an unanswered candidate is never read as UNRELATED.
+ */
+async function judgeJev(articleId: string, revision: number, query: ReportView, cands: CandidateView[]): Promise<{ verdicts: Map<number, JevVerdict>; receiptIds: number[] }> {
+  await assertJevEnabled();
+  const question = jevQuestion();
+  const endsAt = Date.now() + JEV_STAGE_BUDGET_MS;
+  const verdicts = new Map<number, JevVerdict>();
+  const receiptIds: number[] = [];
+  for (const cand of cands) {
+    const remaining = endsAt - Date.now();
+    if (remaining <= 0) throw new Error(`Jev stage ran past its ${JEV_STAGE_BUDGET_MS / 1000}s budget; the task fails for recovery instead of outliving its job`);
+    const answer = await decideRelation({
+      articleId, revision, factId: cand.factId, state: jevState(query, cand), question,
+      promptVersion: JEV_PROMPT_VERSION, policyVersion: JEV_VETO_POLICY_VERSION,
+    }, Math.min(remaining, REQUEST_TIMEOUT_MS));
+    verdicts.set(cand.factId, { relation: answer.relation, confidence: answer.confidence });
+    receiptIds.push(answer.receiptId);
+  }
+  return { verdicts, receiptIds };
 }
 
 /** The review model reads both reports on their own; a merge stands only when it agrees. */
@@ -337,10 +370,18 @@ async function decide(articleId: string, opts: GroupOptions, revision: number, r
   let selection = NO_SELECTED_COVERAGE;
   const receipts: number[] = [];
   if (cands.length || reading.length) {
+    // The veto gate runs before the batch judgement, on the ordinary identity path only: a composite's
+    // mentions, a kept membership and a same-URL match do not consume identity verdicts as such. Only
+    // Jev's UNRELATED answers override a relation; the batch judgement still sees every candidate,
+    // and the batch receipt stays the decision's main one (receipts[0]).
+    const jev = config.groupJevEnabled && cands.length && !composite && !kept && !sameUrl
+      ? await judgeJev(articleId, a.revision, query, cands)
+      : null;
     const judged = await judgeBatch(articleId, { ...query, sourceText: a.body_text }, cands, reading);
-    verdicts = judged.verdicts;
+    verdicts = jev ? applyJevVeto(judged.verdicts, jev.verdicts) : judged.verdicts;
     selection = judged.selection;
     receipts.push(judged.receiptId);
+    if (jev) receipts.push(...jev.receiptIds);
   }
   if (composite) {
     // Use the existing batch judgement only to find mentions. Even a mistaken SAME_OCCURRENCE
