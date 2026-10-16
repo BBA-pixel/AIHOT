@@ -1,0 +1,77 @@
+{
+  "importId": "ustarpay-20261012",
+  "reason": "按站点所有者要求收录 UstarPay 实体卡与虚拟卡，并将实体卡放在精选首位。官网产品页确认卡类型、卡面与用途，价格与 TopUp 费率由用户明确提供。",
+  "officialUrl": "https://www.ustarpay.com/",
+  "sources": [
+    {
+      "id": "official-product",
+      "kind": "official",
+      "url": "https://www.ustarpay.com/product",
+      "name": "UstarPay 官方产品页",
+      "quote": "官网产品页核对摘要（非逐字引用）：产品页分别展示实体卡与虚拟卡，实体卡为黄色卡面，支持线下支付、非接触支付及 ATM 提现；虚拟卡为黑色卡面，面向线上消费与订阅，支持即时激活。卡面展示 Visa 标识。此来源未用于确认开卡价格或充值费率。",
+      "licenseStatus": "restricted"
+    },
+    {
+      "id": "user-pricing",
+      "kind": "user",
+      "url": "https://www.ustarpay.com/",
+      "name": "站点所有者提供的 UstarPay 产品资料（2026-10-12）",
+      "quote": "用户提供实体卡开卡费 USD 99、虚拟卡开卡费 USD 9，并明确 1% 手续费适用于 TopUp 充值。用户同时提供两张卡面原图并授权收录、精选置顶。以上价格和费率来自用户提供，未作为官网独立核验的价格声明。",
+      "licenseStatus": "allowed"
+    },
+    {
+      "id": "physical-artwork",
+      "kind": "user",
+      "url": "https://ucardhot.com/api/card-assets/card-art/ustarpay-physical-15c516e2798d.png",
+      "name": "用户提供的 UstarPay 黄色卡面原图（2026-10-12）",
+      "quote": "用户提供的黄色 UstarPay Visa Platinum 卡面；文件 SHA256：15c516e2798dcef06631771c8bd5c09a3dc5e7a257d27ea443a30a7ff9d2bc58。官网产品页将黄色卡面标识为实体卡。",
+      "licenseStatus": "allowed"
+    },
+    {
+      "id": "virtual-artwork",
+      "kind": "user",
+      "url": "https://ucardhot.com/api/card-assets/card-art/ustarpay-virtual-57ea324e434e.png",
+      "name": "用户提供的 UstarPay 黑色卡面原图（2026-10-12）",
+      "quote": "用户提供的黑色 UstarPay Visa Platinum 卡面；文件 SHA256：57ea324e434e6883727ec8903dd7a3745f368a113e09d1ea090725c6f78bfed8。官网产品页将黑色卡面标识为虚拟卡。",
+      "licenseStatus": "allowed"
+    }
+  ],
+  "cards": [
+    {
+      "kind": "physical",
+      "slug": "ustarpay",
+      "name": "UstarPay 实体卡",
+      "artPath": "/card-art/ustarpay-physical-15c516e2798d.png",
+      "surfaceColor": "#FFD942",
+      "textColor": "#FFFFFF",
+      "setupFeeUsd": 99,
+      "topupFeePercent": 1,
+      "featuredRank": 1,
+      "pricingSource": "user-pricing",
+      "networkSource": "official-product",
+      "fields": [
+        { "key": "summary", "value": "UstarPay Visa 实体卡，支持线下刷卡、非接触支付与 ATM 提现。", "displayText": "UstarPay Visa 实体卡，支持线下刷卡、非接触支付与 ATM 提现。", "source": "official-product" },
+        { "key": "benefits", "value": ["实体卡", "线下支付", "非接触支付", "ATM 提现"], "displayText": "实体卡；线下支付；非接触支付；ATM 提现", "source": "official-product" },
+        { "key": "visual_detail", "value": { "cardType": "实体卡", "color": "黄色", "network": "Visa", "artworkSource": "用户提供原图" }, "displayText": "黄色 UstarPay Visa 实体卡卡面；用户提供原图。", "source": "physical-artwork" }
+      ]
+    },
+    {
+      "kind": "virtual",
+      "slug": "ustarpay-virtual",
+      "name": "UstarPay 虚拟卡",
+      "artPath": "/card-art/ustarpay-virtual-57ea324e434e.png",
+      "surfaceColor": "#101115",
+      "textColor": "#FFFFFF",
+      "setupFeeUsd": 9,
+      "topupFeePercent": 1,
+      "featuredRank": 2,
+      "pricingSource": "user-pricing",
+      "networkSource": "official-product",
+      "fields": [
+        { "key": "summary", "value": "UstarPay Visa 虚拟卡，面向线上消费与订阅支付，支持即时激活。", "displayText": "UstarPay Visa 虚拟卡，面向线上消费与订阅支付，支持即时激活。", "source": "official-product" },
+        { "key": "benefits", "value": ["虚拟卡", "线上消费", "订阅支付", "即时激活"], "displayText": "虚拟卡；线上消费；订阅支付；即时激活", "source": "official-product" },
+        { "key": "visual_detail", "value": { "cardType": "虚拟卡", "color": "黑色", "network": "Visa", "artworkSource": "用户提供原图" }, "displayText": "黑色 UstarPay Visa 虚拟卡卡面；用户提供原图。", "source": "virtual-artwork" }
+      ]
+    }
+  ]
+}

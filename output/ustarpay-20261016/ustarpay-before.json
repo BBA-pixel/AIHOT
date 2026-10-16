@@ -1,0 +1,59 @@
+{
+  "createdAt": "2026-10-16T05:14:43.992Z",
+  "plan": {
+    "importId": "ustarpay-20261012",
+    "payloadHash": "c5b7566c55375bed263a3ef0f1d34e489daa6f7413ad28ce5e29f055c1a4a512",
+    "cards": [
+      {
+        "slug": "ustarpay",
+        "kind": "physical",
+        "name": "UstarPay 实体卡",
+        "artPath": "/card-art/ustarpay-physical-15c516e2798d.png",
+        "setupFeeUsd": 99,
+        "topupFeePercent": 1,
+        "featuredRank": 1
+      },
+      {
+        "slug": "ustarpay-virtual",
+        "kind": "virtual",
+        "name": "UstarPay 虚拟卡",
+        "artPath": "/card-art/ustarpay-virtual-57ea324e434e.png",
+        "setupFeeUsd": 9,
+        "topupFeePercent": 1,
+        "featuredRank": 2
+      }
+    ],
+    "sources": [
+      {
+        "id": "official-product",
+        "kind": "official",
+        "url": "https://www.ustarpay.com/product",
+        "name": "UstarPay 官方产品页"
+      },
+      {
+        "id": "user-pricing",
+        "kind": "user",
+        "url": "https://www.ustarpay.com/",
+        "name": "站点所有者提供的 UstarPay 产品资料（2026-10-12）（用户提供）"
+      },
+      {
+        "id": "physical-artwork",
+        "kind": "user",
+        "url": "https://ucardhot.com/api/card-assets/card-art/ustarpay-physical-15c516e2798d.png",
+        "name": "用户提供的 UstarPay 黄色卡面原图（2026-10-12）"
+      },
+      {
+        "id": "virtual-artwork",
+        "kind": "user",
+        "url": "https://ucardhot.com/api/card-assets/card-art/ustarpay-virtual-57ea324e434e.png",
+        "name": "用户提供的 UstarPay 黑色卡面原图（2026-10-12）"
+      }
+    ]
+  },
+  "issuer": null,
+  "related": [],
+  "cards": [
+    null,
+    null
+  ]
+}
