@@ -138,13 +138,14 @@ export function isBlockedAddress(address: string): boolean {
 }
 
 function ipv4PrivateService(o: [number, number, number, number]): boolean {
-  const [a, b] = o;
+  const [a, b, c, d] = o;
+  if (a === 100 && b === 100 && c === 100 && d === 200) return false; // Alibaba Cloud metadata, inside carrier-grade NAT
   return a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
 }
 
 /**
  * Where a self-hosted service may run: loopback, private, carrier-grade NAT and unique local
- * addresses, never link-local, cloud metadata (fd00:ec2::254), multicast or reserved ranges.
+ * addresses, never link-local, cloud metadata (100.100.100.200, fd00:ec2::254), multicast or reserved ranges.
  */
 function privateServiceAddress(address: string): boolean {
   const v4 = parseIpv4(address);

@@ -128,7 +128,7 @@ test("a listed private feed host may resolve to private service addresses, never
     assert.equal((await listed("http://RSSHub:1200/feed")).hostname, "rsshub", address);
     await assert.rejects(assertPublicUrl("http://rsshub:1200/feed", false, resolve), /Blocked/, `${address} without the list`);
   }
-  for (const address of ["169.254.169.254", "169.254.170.2", "fd00:ec2::254", "fe80::1", "::ffff:169.254.169.254", "::ffff:a9fe:a9fe", "0.0.0.0", "198.18.0.1", "224.0.0.1", "2001:db8::1"]) {
+  for (const address of ["169.254.169.254", "169.254.170.2", "100.100.100.200", "::ffff:100.100.100.200", "::ffff:6464:64c8", "fd00:ec2::254", "fe80::1", "::ffff:169.254.169.254", "::ffff:a9fe:a9fe", "0.0.0.0", "198.18.0.1", "224.0.0.1", "2001:db8::1"]) {
     answers.rsshub = [address];
     await assert.rejects(listed("http://rsshub:1200/feed"), /Blocked/, address);
   }
