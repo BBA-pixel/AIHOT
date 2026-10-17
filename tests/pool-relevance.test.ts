@@ -91,3 +91,16 @@ test("public search needs a plain Latin term to start a word in the body", async
     .map(r => r.article_id).sort();
   assert.deepEqual(await found("kv"), ["kv-direct", "kv-han", "kv-word"].map(id).sort());
 });
+
+test("equal relevance ranks a seated selected item, then the higher score, then the newest", async () => {
+  await add("tie-new", "wq", "", { age: 1 });
+  await add("tie-score", "wq", "", { age: 30 });
+  await add("tie-selected", "wq", "", { age: 50 });
+  await add("tie-unseated", "wq", "", { age: 40 });
+  await sql`UPDATE publications SET score = 80 WHERE article_id = ${id("tie-score")}`;
+  await sql`UPDATE publications SET selected = true, score = 10 WHERE article_id = ${id("tie-selected")}`;
+  await sql`UPDATE publications SET selected = true, seat = false, score = 5 WHERE article_id = ${id("tie-unseated")}`;
+  const result = await loadPool(query("wq"));
+  assert.deepEqual(result.items.map(item => item.id), ["tie-selected", "tie-score", "tie-unseated", "tie-new"].map(id));
+  assert.equal(result.total, 4);
+});
