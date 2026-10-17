@@ -60,6 +60,11 @@ async function route(articleId: string, db: Db): Promise<Route | null> {
  */
 const PRIORITY = { live: 0, liveSignal: -1, history: -2 } as const;
 
+/** A grouping job's place in that order, for repairs and budget waits as for the first queueing. */
+export function groupingPriority(a: { signal: boolean; historical: boolean }): number {
+  return a.historical ? PRIORITY.history : a.signal ? PRIORITY.liveSignal : PRIORITY.live;
+}
+
 /**
  * The one way to hand an article to processing. `attemptTag` makes an explicit re-evaluation a new
  * (paid) request; the same tag reuses its receipt. With `db`, the job commits with the caller's write.
@@ -78,7 +83,7 @@ export async function queueProcessing(articleId: string, opts: { step?: Step; at
   const attemptTag = queued.processing_attempt_tag ?? undefined;
   if (step === "extract") return enqueue(QUEUES.extractBody, { articleId }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.live }, opts.db);
   if (r.signal && !attemptTag) {
-    return enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: r.historical ? PRIORITY.history : PRIORITY.liveSignal }, opts.db);
+    return enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: groupingPriority(r) }, opts.db);
   }
   const tagged = !!attemptTag;
   return enqueue(QUEUES.analyze, tagged ? { articleId, attemptTag } : { articleId },
@@ -99,7 +104,7 @@ export async function settleNonEditorial(articleId: string): Promise<{ group: bo
   return { group: row.participation_mode === "hot_signal" && !isHistorical(row) };
 }
 
-async function processingInput(articleId: string) {
+export async function processingInput(articleId: string) {
   const [row] = await sql<{ participation_mode: string; revision: number; backfill: boolean; published_at: Date | null; discovered_at: Date }[]>`
     SELECT s.participation_mode, a.revision, a.backfill, a.published_at, a.discovered_at FROM articles a JOIN sources s ON s.id = a.source_id WHERE a.id = ${articleId}`;
   return row ? { ...row, historical: isHistorical(row) } : null;
@@ -124,7 +129,7 @@ async function processRevision(articleId: string, row: NonNullable<Awaited<Retur
   if (row.participation_mode !== "editorial") {
     // Normally queued straight for grouping (queueProcessing); an explicit re-evaluation lands here.
     const { group } = await settleNonEditorial(articleId);
-    if (group) await enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: PRIORITY.liveSignal });
+    if (group) await enqueue(QUEUES.group, { articleId, signalOnly: true }, { singletonKey: articleId, priority: groupingPriority({ signal: true, historical: row.historical }) });
     return { state: "skipped" };
   }
   try {
@@ -138,7 +143,7 @@ async function processRevision(articleId: string, row: NonNullable<Awaited<Retur
     if (result.stale) return { state: "stale" }; // the newer revision has its own job
     await publishArticle(articleId);
     // History still completes the identity gate; groupArticle confirms it without a model call.
-    if (result.output.relevance === "pass") await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: row.historical ? PRIORITY.history : PRIORITY.live });
+    if (result.output.relevance === "pass") await enqueue(QUEUES.group, { articleId }, { singletonKey: articleId, priority: groupingPriority({ signal: false, historical: row.historical }) });
     await sql`UPDATE articles SET processing_attempts = 0, processing_retry_at = NULL, processing_queued_at = NULL
               WHERE id = ${articleId} AND revision = ${row.revision}`;
     return { state: result.output.relevance };

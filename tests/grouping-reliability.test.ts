@@ -5,13 +5,15 @@
 import { embeddingsStub, gate, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { after, before, test } from "node:test";
 import { closeDb, sql } from "@aihot/backend/db";
 import { upsertMaterial } from "@aihot/backend/content/materials";
 import { groupArticle } from "@aihot/backend/events/group";
 import { BatchSchema, PairSchema, verdictsByFact, type CandidateView } from "@aihot/backend/events/relate";
 import { detachFromFact, requestRegroup } from "@aihot/backend/events/corrections";
-import { sweepUngrouped } from "@aihot/backend/jobs/events";
+import { queueProcessing } from "@aihot/backend/jobs/content";
+import { registerEventJobs, sweepUngrouped } from "@aihot/backend/jobs/events";
 import { enqueue, getBoss, QUEUES, stopBoss } from "@aihot/backend/jobs/queue";
 import { recoverStaleWork, releaseReceipt } from "@aihot/backend/operations/recover";
 import { publishArticle } from "@aihot/backend/publication/publish";
@@ -200,6 +202,23 @@ test("a lost pending grouping job is repaired once, but a terminal failure waits
   assert.deepEqual({ ...manual }, { grouping_status: "complete", grouping_error: null });
 });
 
+// Failure mode: a bulk repair of old articles is queued as live work and holds up today's news.
+test("the repair sweep keeps history behind live work", async () => {
+  const old = await report("sweep-history");
+  const live = await report("sweep-live");
+  await sql`UPDATE articles SET backfill=true,published_at=now()-interval '30 days' WHERE id=${old}`;
+  await sql`UPDATE articles SET created_at=now()-interval '5 minutes' WHERE id IN (${old},${live})`;
+  assert.equal((await sweepUngrouped()).enqueued, 2);
+  const queued = await sql<{ article: string; priority: number }[]>`
+    SELECT data->>'articleId' AS article, priority FROM pgboss.job WHERE name=${QUEUES.group} AND data->>'articleId' IN (${old},${live})`;
+  assert.deepEqual(Object.fromEntries(queued.map((j) => [j.article, j.priority])), { [old]: -2, [live]: 0 });
+  const boss = await getBoss();
+  for (const job of [...await boss.fetch(QUEUES.group), ...await boss.fetch(QUEUES.group)]) {
+    await groupArticle((job.data as { articleId: string }).articleId);
+    await boss.complete(QUEUES.group, job.id);
+  }
+});
+
 
 // Failure modes: a report changes while its old model response is in flight; neither the old answer
 // nor a late timeout may complete or fail the replacement revision.
@@ -244,4 +263,38 @@ for (const change of ["revision", "regroup"] as const) test(`${change} withdraws
   }
   const [current] = await sql`SELECT a.grouping_status,p.selected FROM articles a JOIN publications p ON p.article_id=a.id WHERE a.id=${id}`;
   assert.deepEqual({ ...current }, { grouping_status: "pending", selected: false });
+});
+
+// Failure modes: a spent budget fails the grouping job, so pg-boss retries it to no purpose and then
+// gives up; a discussion post has no sweep to queue it again and would stay pending for good.
+// Runs the real worker, so it stays the last test of this file.
+test("a spent budget makes the grouping job wait for the budget window in its place, for reports and discussion posts", async () => {
+  const signalSource = `group-reliability-signal-${T}`;
+  await sql`INSERT INTO sources (id,name,kind,tier,participation_mode,next_fetch_at) VALUES (${signalSource},'Group reliability signal','rss','T2','hot_signal','2100-01-01')`;
+  const reportId = await report("budget-worker");
+  const { articleId: postId } = await upsertMaterial({ sourceId: signalSource, url: `https://example.org/group-${T}/budget-post`, title: `讨论新模型${T}`, via: "fetch", publishedAt: new Date() });
+  const budgets = await sql`SELECT service,per_minute,per_hour,per_day FROM budgets`;
+  try {
+    await sql`UPDATE budgets SET per_minute=0,per_hour=0,per_day=0`;
+    await registerEventJobs(await getBoss());
+    await enqueue(QUEUES.group, { articleId: reportId }, { singletonKey: reportId, priority: 0 });
+    await queueProcessing(postId);
+    for (const [id, priority] of [[reportId, 0], [postId, -1]] as const) {
+      const jobs = () => sql<{ state: string; priority: number; data: unknown; wait: number }[]>`
+        SELECT state, priority, data, extract(epoch FROM start_after - now())::float8 AS wait FROM pgboss.job
+        WHERE name=${QUEUES.group} AND data->>'articleId'=${id} ORDER BY created_on`;
+      const deadline = Date.now() + 15_000;
+      while ((await jobs()).some((j) => j.state === "active" || (j.state === "created" && j.wait <= 0))) {
+        assert.ok(Date.now() < deadline, "queue did not settle");
+        await delay(20);
+      }
+      const [first, ...rest] = await jobs();
+      assert.equal(first!.state, "completed", "the budget wait is not a job failure");
+      assert.deepEqual(rest.map((j) => [j.state, j.priority, j.data]), [["created", priority, first!.data]], "one job waits, in the same place");
+      assert.ok(rest[0]!.wait > 3000, "it starts when the budget window opens");
+      assert.equal((await sql`SELECT grouping_status FROM articles WHERE id=${id}`)[0]!.grouping_status, "pending");
+    }
+  } finally {
+    for (const b of budgets) await sql`UPDATE budgets SET per_minute=${b.per_minute},per_hour=${b.per_hour},per_day=${b.per_day} WHERE service=${b.service}`;
+  }
 });
