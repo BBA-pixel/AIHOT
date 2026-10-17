@@ -15,22 +15,28 @@ import { DEPLOYMENT, SITE } from "@aihot/site";
  * hosts, are connected here instead, so the
  * connect-time address check still applies. A name sent through the proxy is resolved through it too
  * (egress-proxy.ts), and the tunnel goes to the checked address. "direct" is for paid APIs called
- * straight (SocialData, Dajiala) and the site's own addresses.
+ * straight (SocialData, Dajiala) and the site's own addresses. A listing fetch from a host in
+ * PRIVATE_FEED_HOSTS is connected directly too.
  */
 export type EgressRoute = "egress" | "direct";
 
 let proxyAgent: ProxyAgent | null = null;
 let directAgent: Agent | null = null;
+let privateFeedAgent: Agent | null = null;
 let resolveEgress: ReturnType<typeof createEgressResolver> | null = null;
 
 function egressResolver() {
   return resolveEgress ??= createEgressResolver(config.egressProxyUrl!);
 }
 
-function proxied(url: URL, route: EgressRoute): boolean {
+function hostOf(url: URL): string {
+  return url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+}
+
+function proxied(url: URL, route: EgressRoute, privateHosts: readonly string[]): boolean {
   if (route !== "egress" || !config.egressProxyUrl) return false;
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-  return net.isIP(host) === 0 && !host.endsWith(".cn") && !host.endsWith(".local") && !DEPLOYMENT.directFetchHosts.includes(host);
+  const host = hostOf(url);
+  return net.isIP(host) === 0 && !privateHosts.includes(host) && !host.endsWith(".cn") && !host.endsWith(".local") && !DEPLOYMENT.directFetchHosts.includes(host);
 }
 
 // Per-edition limits are optional; missing hosts keep the runtime default (normally 16 KiB).
@@ -39,12 +45,19 @@ function destinationPool(origin: string | URL, options: object): Pool {
   return new Pool(origin, { ...options, maxHeaderSize: limits?.[new URL(origin).hostname] });
 }
 
-function dispatcherFor(viaProxy: boolean): Dispatcher | undefined {
+function dispatcherFor(viaProxy: boolean, privateHost: boolean): Dispatcher | undefined {
   if (viaProxy) {
     proxyAgent ??= createEgressProxy(config.egressProxyUrl!, egressResolver(), destinationPool);
     return proxyAgent;
   }
   if (config.allowPrivateNetworkFetch) return undefined;
+  if (privateHost) {
+    // The listed name may resolve to a private service; the address dialled is still checked.
+    privateFeedAgent ??= new Agent({ ...OUTBOUND_HTTP_OPTIONS, factory: destinationPool, connect: {
+      lookup: ((hostname: string, options: never, callback: never) => guardedLookup(hostname, options, callback, config.privateFeedHosts)) as never,
+    } });
+    return privateFeedAgent;
+  }
   // Direct connections resolve through the guarded lookup: the address actually dialled is checked.
   directAgent ??= new Agent({ ...OUTBOUND_HTTP_OPTIONS, connect: { lookup: guardedLookup as never }, factory: destinationPool });
   return directAgent;
@@ -62,6 +75,11 @@ export interface GuardedFetchOptions {
   redirectPolicy?: "same-origin";
   /** "egress" by default; see EgressRoute. */
   route?: EgressRoute;
+  /**
+   * The URL is an address the administrator configured (listing-fetch.ts): when its host is listed in
+   * PRIVATE_FEED_HOSTS it may be a private service. Redirects to any other host keep the normal rules.
+   */
+  privateFeedHost?: boolean;
 }
 
 export interface GuardedResponse {
@@ -80,8 +98,10 @@ export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}
   // nominal 20 s image request to occupy the API for minutes.
   const signal = AbortSignal.timeout(opts.timeoutMs ?? 20_000);
   const route = opts.route ?? "egress";
+  const configuredHost = hostOf(new URL(input));
+  const privateHosts = opts.privateFeedHost && config.privateFeedHosts.includes(configuredHost) ? [configuredHost] : [];
   const check = (target: string) => withinDeadline(assertPublicUrl(target, config.allowPrivateNetworkFetch,
-    proxied(new URL(target), route) ? egressResolver() : undefined), signal);
+    proxied(new URL(target), route, privateHosts) ? egressResolver() : undefined, privateHosts), signal);
   let url = await check(input);
   const maxRedirects = opts.maxRedirects ?? 5;
   const maxBytes = opts.maxBytes ?? 8 * 1024 * 1024;
@@ -98,7 +118,7 @@ export async function guardedFetch(input: string, opts: GuardedFetchOptions = {}
       headers: Object.fromEntries(headers),
       body: requestBody,
       redirect: "manual",
-      dispatcher: dispatcherFor(proxied(url, route)),
+      dispatcher: dispatcherFor(proxied(url, route, privateHosts), privateHosts.includes(hostOf(url))),
       signal,
     });
     if ([301, 302, 303, 307, 308].includes(res.status) && res.headers.get("location")) {
