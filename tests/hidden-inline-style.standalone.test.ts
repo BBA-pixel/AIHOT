@@ -106,6 +106,10 @@ test("a drawing's holder keeps its other images and text, and hidden words do no
     `<figure><div role="img"><svg><title>Quarterly revenue</title><path d="M0 0L9 9"/></svg><p>Quarterly revenue</p></div><figcaption>Cap</figcaption></figure>`,
   ), "https://example.com/article");
   assert.equal(occurrences(repeated!.text, "Quarterly revenue"), 1, "words the holder keeps count as shown");
+  const dropped = readable(page(
+    `<figure><div role="img" aria-hidden="true"><svg><path d="M0 0L9 9"/></svg><p>Quarterly costs</p></div><svg aria-label="Quarterly costs"><path d="M0 0L9 9"/></svg><figcaption>Cap</figcaption></figure>`,
+  ), "https://example.com/article");
+  assert.equal(occurrences(dropped!.text, "Quarterly costs"), 1, "words the extraction drops (aria-hidden) do not count as shown");
   const noted = readable(page(
     `<figure><svg aria-labelledby="note"><path d="M0 0L9 9"/></svg><span id="note" hidden>HIDDEN_NOTE explains the chart.</span><figcaption>Cap</figcaption></figure>`,
   ), "https://example.com/article");

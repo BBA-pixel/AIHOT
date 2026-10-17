@@ -155,8 +155,9 @@ function describeFigureDrawings(document: Doc) {
     let seen = figures.get(figure);
     if (!seen) {
       const copy = figure.cloneNode(true) as El;
-      for (const el of copy.querySelectorAll('svg, [role="img"], [hidden], [style]')) {
-        if (el.localName === "svg" || (el.getAttribute("role") === "img" && onlyDrawings(el)) || hiddenIn(el, copy)) el.remove();
+      // Readability drops aria-hidden elements, so their words are not shown either.
+      for (const el of copy.querySelectorAll('svg, [role="img"], [hidden], [style], [aria-hidden="true"]')) {
+        if (el.localName === "svg" || (el.getAttribute("role") === "img" && onlyDrawings(el)) || el.getAttribute("aria-hidden") === "true" || hiddenIn(el, copy)) el.remove();
       }
       seen = { shown: words(copy.textContent ?? ""), texts: new Map() };
       figures.set(figure, seen);
