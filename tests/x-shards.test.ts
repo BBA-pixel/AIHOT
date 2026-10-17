@@ -94,7 +94,8 @@ test("one search reads a shard; each account gets its own posts, run and waterma
   for (const q of asked) assert.match(q, new RegExp(`^\\(from:${HANDLES[0]} OR from:${HANDLES[1]} OR from:${HANDLES[2]}\\) -filter:replies since_id:${WATERMARK}$`));
   const stored = await sql<{ source_id: string; n: number }[]>`SELECT source_id, count(*)::int AS n FROM articles WHERE source_id IN ${sql(IDS)} GROUP BY 1`;
   assert.deepEqual(Object.fromEntries(stored.map((r) => [r.source_id, r.n])), { [IDS[0]!]: 3, [IDS[1]!]: 1 });
-  for (const id of IDS) assert.equal((await cursorOf(id)).lastTweetId, String(BASE + 104n), "every account is covered up to the newest post read");
+  assert.deepEqual(await Promise.all(IDS.map(async (id) => (await cursorOf(id)).lastTweetId)), [String(BASE + 104n), String(BASE + 103n), String(WATERMARK)],
+    "each account's watermark moves to its own newest post; a quiet account's stays");
   const runs = await sql<{ source_id: string; status: string; found_count: number; detail: { shard: string; accounts: number } }[]>`
     SELECT DISTINCT ON (source_id) source_id, status, found_count, detail FROM fetch_runs WHERE source_id IN ${sql(IDS)} ORDER BY source_id, id DESC`;
   assert.deepEqual(runs.map((r) => [r.status, r.found_count, r.detail.accounts]), [["ok", 3, 3], ["ok", 1, 3], ["ok", 0, 3]]);
@@ -110,8 +111,9 @@ test("a page failing after the first keeps what was read and goes on from there 
   const first = await collectXShard(`editorial:test-${T}`, IDS);
   assert.equal(first.status, "ok", "the accounts are not failed for a later page");
   assert.equal(first.found, 2, "the first page is kept");
+  assert.equal((await cursorOf(IDS[0]!)).lastTweetId, String(BASE + 104n), "the watermark moves to the account's newest post read");
   const cursor = (await sql<{ cursor: { lastTweetId: string; xBacklog?: unknown[] } }[]>`SELECT cursor FROM sources WHERE id = ${IDS[2]!}`)[0]!.cursor;
-  assert.equal(cursor.lastTweetId, String(BASE + 104n), "the watermark moves to the newest post read");
+  assert.equal(cursor.lastTweetId, String(WATERMARK - 1n), "a quiet account keeps its own");
   assert.equal(cursor.xBacklog?.length, 1, "the rest is kept to read");
   const partial = await sql`SELECT status FROM receipts WHERE subject = ${`x-shard:editorial:test-${T}`}
     AND request->>'query' LIKE ${`%since_id:${WATERMARK - 1n}`} ORDER BY id`;
@@ -131,6 +133,27 @@ test("a quiet account's old newest post does not drag the shard's search back: i
   const since = BigInt(/since_id:(\d+)/.exec(queries[before]!)![1]!);
   const expected = (BigInt(checked - 10 * 60_000 - 1288834974657) << 22n);
   assert.equal(since, expected > WATERMARK - 3n ? expected : WATERMARK - 3n, "bounded by the last checks, not by the quiet account's post");
+});
+
+test("a post in the ten minutes before a check leaves the next search those ten minutes back", async () => {
+  // A real post id from two minutes ago, by the first account only.
+  const recent = { id: BigInt(Date.now() - 2 * 60_000 - 1288834974657) << 22n, handle: HANDLES[0]! };
+  POSTS.unshift(recent);
+  const pair = [IDS[0]!, IDS[2]!];
+  const key = `editorial:late-${T}`;
+  try {
+    await sql`UPDATE sources SET cursor = (cursor - 'lastOkAt' - 'xBacklog') || ${sql.json({ lastTweetId: String(WATERMARK - 40n) })} WHERE id IN ${sql(pair)}`;
+    assert.equal((await collectXShard(key, pair)).status, "ok");
+    assert.equal((await cursorOf(IDS[0]!)).lastTweetId, String(recent.id), "the poster moves to its own newest post");
+    const quiet = (await cursorOf(IDS[2]!)) as { lastTweetId: string; lastOkAt: string };
+    assert.equal(quiet.lastTweetId, String(WATERMARK - 40n), "the quiet account keeps its watermark");
+    const before = queries.length;
+    await collectXShard(key, pair);
+    const since = BigInt(/since_id:(\d+)/.exec(queries[before]!)![1]!);
+    assert.equal(since, BigInt(Date.parse(quiet.lastOkAt) - 10 * 60_000 - 1288834974657) << 22n, "posts reaching the search late are still read");
+  } finally {
+    POSTS.splice(POSTS.indexOf(recent), 1);
+  }
 });
 
 test("a failed search fails every account of the shard and moves no watermark", async () => {

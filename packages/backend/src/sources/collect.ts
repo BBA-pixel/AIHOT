@@ -283,8 +283,9 @@ function coveredTo(m: SourceRow): bigint {
  * One search for a shard of X accounts (planXShards). Each post goes to the source whose handle wrote
  * it, and every account keeps its own fetch run, health and cursor. The oldest watermark bounds the
  * search, so no account misses a post (the others only see posts they already have again); afterwards
- * every account is covered up to the newest post the search saw, and the stretches still unread are
- * kept in each account's cursor, so they survive a change of shards.
+ * each account's watermark moves to its own newest post the search saw (another account's would hide
+ * its late posts and, read on its own, the posts below it), and the stretches still unread are kept in
+ * each account's cursor, so they survive a change of shards.
  */
 export async function collectXShard(key: string, sourceIds: string[]): Promise<{ key: string; status: "ok" | "failed" | "skipped"; accounts: number; found: number; created: number; error?: string }> {
   const members = (
@@ -310,24 +311,25 @@ export async function collectXShard(key: string, sourceIds: string[]): Promise<{
     }
     const read = await readXSearch(shardQuery(members.map((m) => shardHandle(m)!), members.map(selfThreadHandle).filter((h): h is string => h !== null)), { lastId: String(since), backlog, subject: `x-shard:${key}` });
     const detail = { shard: key, accounts: members.length, pages: read.pages, truncated: read.truncated, backlog: read.backlog.length, backlogPages: read.backlogPages, dropped: read.dropped };
-    const counts = new Map<string, { found: number; created: number }>();
+    const counts = new Map<string, { found: number; created: number; newest: string }>();
     for (const m of members) {
       const handle = shardHandle(m)!.toLowerCase();
       const mine = read.tweets.filter((t) => t.user.screen_name.toLowerCase() === handle);
       const stored = await store(m.id, admitListing(mine.map(tweetToCandidate), m), null);
       found += mine.length;
       created += stored.created;
-      counts.set(m.id, { found: mine.length, created: stored.created });
+      const newest = mine.reduce((a, t) => (BigInt(t.id_str) > BigInt(a) ? t.id_str : a), String(m.cursor!.lastTweetId));
+      counts.set(m.id, { found: mine.length, created: stored.created, newest });
     }
     // Only a fully stored search advances coverage. A failed write can replay every paid page;
     // material already committed is idempotent, and no member is left half-finished.
     await sql.begin(async tx => {
       for (const m of members) {
-        const own = String(m.cursor!.lastTweetId);
-        const cursor: Record<string, unknown> = { ...m.cursor, lastTweetId: read.lastId && BigInt(read.lastId) > BigInt(own) ? read.lastId : own, lastOkAt: new Date().toISOString() };
+        const { newest, ...count } = counts.get(m.id)!;
+        const cursor: Record<string, unknown> = { ...m.cursor, lastTweetId: newest, lastOkAt: new Date().toISOString() };
         if (read.backlog.length) cursor.xBacklog = read.backlog;
         else delete cursor.xBacklog;
-        await recordFetch(tx, m.id, runs.get(m.id)!, { ...counts.get(m.id)!, detail, cursor });
+        await recordFetch(tx, m.id, runs.get(m.id)!, { ...count, detail, cursor });
       }
       for (const receiptId of read.receiptIds) await completeReceipt(tx, receiptId);
     });
