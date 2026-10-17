@@ -1,13 +1,15 @@
 // X accounts share searches: one request reads a shard of accounts, each post goes to
 // the source whose handle wrote it, every account keeps its own fetch run and watermark, and a failed
-// search moves no watermark.
+// search moves no watermark. The account a source reads is its query's, whatever its name shows.
 import { Reply, stub, tag } from "./setup.ts";
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
 import { stopBoss } from "@aihot/backend/jobs/queue";
+import { upsertMaterial } from "@aihot/backend/content/materials";
 import { collectSource, collectXShard, scheduleDueSources } from "@aihot/backend/sources/collect";
+import { refreshSourceIcons } from "@aihot/backend/sources/icons";
 import { planXShards, shardQuery, selfThreadHandle, fetchXSearch } from "@aihot/backend/sources/x";
 
 const T = tag();
@@ -245,4 +247,22 @@ test("paid search receipts and coverage commit together for single sources and s
     const completed = await sql`SELECT status, completed_at FROM receipts WHERE subject = ${subject} AND request->>'query' LIKE ${`%since_id:${watermark}`}`;
     assert.ok(completed.every((r) => r.status === "completed" && r.completed_at !== null));
   }
+});
+
+// Names show the account in many ways ("X：某人（@handle）" ends in a full-width bracket), so an account
+// found by its name's last "(@handle)" never took its posts' avatar.
+test("an account takes the avatar on its own latest post, whatever its name shows", async () => {
+  const handle = `sd${T}`;
+  const id = `test-xs-${handle}`;
+  await sql`INSERT INTO sources (id, name, kind, config, next_fetch_at)
+            VALUES (${id}, ${`X：某人（@${handle}）`}, 'x_search', ${sql.json({ query: `from:${handle} -filter:replies` })}, '2100-01-01')`;
+  const post = (n: bigint, author: string, avatarUrl: string, minutesAgo: number) => upsertMaterial({
+    sourceId: id, url: `https://x.com/${author}/status/${BASE + n}`, title: `Post ${n}`, via: "fetch", discoveredAt: new Date(Date.now() - minutesAgo * 60_000),
+    xPost: { tweetId: String(BASE + n), authorName: author, handle: author, avatarUrl, text: `Post ${n} ${T}` },
+  });
+  await post(901n, handle.toUpperCase(), "https://pbs.twimg.com/profile_images/1/own.jpg", 2);
+  await post(902n, `other${T}`, "https://pbs.twimg.com/profile_images/2/someone-else.jpg", 1);
+  await refreshSourceIcons();
+  const [source] = await sql<{ icon_url: string | null }[]>`SELECT icon_url FROM sources WHERE id = ${id}`;
+  assert.equal(source!.icon_url, "https://pbs.twimg.com/profile_images/1/own.jpg", "its own post's avatar, not a later post by someone else");
 });

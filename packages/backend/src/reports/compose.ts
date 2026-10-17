@@ -8,7 +8,7 @@ import { EDITION_TIMES, REPORTS, SITE } from "@aihot/site";
 import { PLAIN_TERMS, RELEASE } from "@aihot/industry/taxonomy";
 import { promptText, promptVersion } from "../editorial/prompts.ts";
 import { modelFor } from "../editorial/models.ts";
-import { ENTITIES, isRelease } from "../editorial/vocabulary.ts";
+import { ENTITIES, entityNames, isRelease } from "../editorial/vocabulary.ts";
 import { addDays, beijingAt, beijingDate, beijingTime, isoWeekLabel, isoWeekRange, monthRange } from "@aihot/contracts/time";
 import { sql } from "../db.ts";
 import { logError } from "../lib/log-error.ts";
@@ -152,7 +152,7 @@ export function periodPrompt(kind: "weekly" | "monthly", startDate: string, endD
   };
 }
 
-const COMPANY_NAMES = Object.values(ENTITIES).map((e) => [e.name, ...e.aliases, ...(e.otherNames ?? [])].map((n) => n.toLowerCase()));
+const COMPANY_NAMES = Object.values(ENTITIES).map((e) => entityNames(e).map((n) => n.toLowerCase()));
 /** Words a writer may use that name nothing in particular: the pack's plain terms and the site's name. */
 const PLAIN = new Set([...PLAIN_TERMS, SITE.name.toLowerCase()]);
 
@@ -323,6 +323,8 @@ export async function composeDueReports(now = new Date(), limit = 8): Promise<{ 
       try {
         if (await k.compose(key) !== null) generated.push(`${k.kind}:${key}`);
       } catch (error) {
+        // An issue interrupted by the stop is not a failure: it is written after the restart.
+        if (shutdownSignal.signal.aborted) break kinds;
         failed.push(`${k.kind}:${key}`);
         console.error(JSON.stringify({ level: "error", msg: "report failed", report: `${k.kind}:${key}`, error: logError(error) }));
       }

@@ -7,9 +7,9 @@ import { after, test } from "node:test";
 import { z } from "zod";
 import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
-import { chatJson, ModelOutputError } from "@aihot/backend/providers/llm";
+import { chatJson } from "@aihot/backend/providers/llm";
 import { embeddingsAvailable } from "@aihot/backend/providers/embeddings";
-import { BudgetExceededError, logicalKeyFor, markStalePendingReceipts, paidRequest, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
+import { assertAccepted, failureKind, ProviderRejectedError, BudgetExceededError, logicalKeyFor, markStalePendingReceipts, ModelOutputError, paidRequest, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
 import { autoReleaseUnknownReceipts } from "@aihot/backend/operations/recover";
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
@@ -24,6 +24,47 @@ const ask = (subject: string) =>
 after(async () => {
   await provider.close();
   await closeDb();
+});
+
+// HTTP 429 also carries account/plan refusals; the same "insufficient_quota" code means
+// temporary TPM throttling at DashScope. A generic quota match gets both decisions wrong.
+test("429 distinguishes documented spending refusals from request and token rate limits", () => {
+  const cases: [string, unknown, "refused" | "outage"][] = [
+    ["llm", { type: "GoUsageLimitError", message: "Go usage limit exceeded" }, "refused"],
+    ["llm", { type: "error", error: { type: "GoUsageLimitError", message: "Go usage limit exceeded" } }, "refused"],
+    ["llm", { error: { type: "FreeUsageLimitError", message: "Rate limit exceeded. Please try again later." } }, "refused"],
+    ["zhipu", { error: { code: "1113", message: "account unavailable" } }, "refused"],
+    ["zhipu", { error: { code: 1308, message: "usage window exhausted" } }, "refused"],
+    ["zhipu", { error: { code: "1309", message: "subscription expired" } }, "refused"],
+    ["zhipu", { error: { code: "1310", message: "weekly or monthly limit reached" } }, "refused"],
+    ["dashscope", { code: "BudgetLimitExceeded", message: "budget reached" }, "refused"],
+    ["dashscope", { error: { code: "PrepaidBillOverdue", message: "service expired" } }, "refused"],
+    ["dashscope", { error: { code: "PostpaidBillOverdue", message: "service expired" } }, "refused"],
+    ["dashscope", { code: "CommodityNotPurchased", message: "subscription missing" }, "refused"],
+    ["dashscope", { code: "Throttling.AllocationQuota", message: "Free allocated quota exceeded." }, "refused"],
+    ["llm", { error: { message: "x".repeat(900), code: "credit_balance_exhausted" } }, "refused"],
+    ["llm", { error: { code: "organization_usage_limit_exceeded" } }, "refused"],
+    ["llm", { error: { code: "organization_spend_limit_exceeded" } }, "refused"],
+    ["llm", { error: { code: "project_spend_limit_exceeded" } }, "refused"],
+    ["mimo", { error: { message: "Insufficient balance" } }, "refused"],
+    ["zhipu", { error: { code: "1302", message: "请求频率过高" } }, "outage"],
+    ["zhipu", { error: { code: "1305", message: "服务暂时不可用" } }, "outage"],
+    ["dashscope", { error: { code: "insufficient_quota", message: "You exceeded your current quota, please check your plan and billing details." } }, "outage"],
+    ["dashscope", { code: "Throttling.AllocationQuota", message: "Allocated quota exceeded, please increase your quota limit." }, "outage"],
+    ["dashscope", { code: "Throttling.RateQuota", message: "Requests rate limit exceeded, please try again later." }, "outage"],
+    ["dashscope", { code: "Throttling.ResourceExhausted", message: "Too many requests." }, "outage"],
+    ["deepseek", { error: { message: "Rate limit reached" } }, "outage"],
+    ["mimo", { error: { message: "quota exceeded" } }, "outage"],
+    ["llm", { error: { code: "insufficient_quota", message: "quota exceeded" } }, "outage"],
+    ["llm", { error: { code: "slow_down", message: "rate limit reached" } }, "outage"],
+  ];
+  for (const [service, response, expected] of cases) {
+    assert.throws(() => assertAccepted(service, 429, JSON.stringify(response)), (error: unknown) => {
+      assert.ok(error instanceof ProviderRejectedError);
+      assert.equal(failureKind(error), expected, `${service}: ${JSON.stringify(response)}`);
+      return true;
+    });
+  }
 });
 
 test("the migrations seed a budget for every paid service", async () => {
