@@ -111,6 +111,13 @@ function hiddenIn(el: El, figure: El): boolean {
   return false;
 }
 
+/** A [role="img"] holder that has nothing besides its svgs: no text, image or video of its own. */
+function onlyDrawings(holder: El): boolean {
+  const copy = holder.cloneNode(true) as El;
+  for (const svg of copy.querySelectorAll("svg")) svg.remove();
+  return !collapsed(copy.textContent) && !copy.querySelector("img, picture, video");
+}
+
 /** The text alternative of a drawing, a line each: what aria-labelledby points to, aria-label, or an svg's title and desc. */
 function drawingText(document: Doc, el: El): string[] {
   const ids: string[] = el.getAttribute("aria-labelledby")?.split(/\s+/).filter(Boolean) ?? [];
@@ -125,11 +132,12 @@ function drawingText(document: Doc, el: El): string[] {
 /**
  * An inline SVG drawing in a figure is not kept: its colours come from the page's stylesheet and its
  * labels are not prose. The drawing is the figure's [role="img"] element holding the svg, else the svg;
- * its own text alternative stands in for it as a paragraph, written as text, never as markup. The page
+ * a holder with text or images of its own keeps them, and only its svgs are replaced. The drawing's
+ * own text alternative stands in for it as a paragraph, written as text, never as markup. The page
  * hides the drawing from screen readers (aria-hidden) because that text is read instead, so only hidden
  * and style carry over. Wide and narrow versions of one figure give the same text once, from a version
- * that is shown. Words the figure already shows (its caption, a heading) are not repeated; a drawing
- * without any text is left to be dropped.
+ * that is shown. Words the figure shows (its caption, a heading, not hidden text) are not repeated; a
+ * drawing without any text is left to be dropped.
  */
 function describeFigureDrawings(document: Doc) {
   const figures = new Map<El, { shown: string; texts: Map<string, El> }>();
@@ -137,7 +145,7 @@ function describeFigureDrawings(document: Doc) {
     const figure = svg.closest("figure");
     if (!figure) continue; // inside a drawing already replaced
     const holder = svg.closest('[role="img"]');
-    const drawing = holder && holder !== figure && figure.contains(holder) ? holder : svg;
+    const drawing = holder && holder !== figure && figure.contains(holder) && onlyDrawings(holder) ? holder : svg;
     const lines = drawingText(document, drawing);
     if (!lines.length && drawing !== svg) lines.push(...drawingText(document, svg));
     const text = lines.join(" ");
@@ -145,7 +153,9 @@ function describeFigureDrawings(document: Doc) {
     let seen = figures.get(figure);
     if (!seen) {
       const copy = figure.cloneNode(true) as El;
-      for (const el of copy.querySelectorAll('svg, [role="img"]')) el.remove();
+      for (const el of copy.querySelectorAll('svg, [role="img"], [hidden], [style]')) {
+        if (el.localName === "svg" || el.getAttribute("role") === "img" || hiddenIn(el, copy)) el.remove();
+      }
       seen = { shown: words(copy.textContent ?? ""), texts: new Map() };
       figures.set(figure, seen);
     }

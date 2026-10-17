@@ -94,6 +94,19 @@ test("a hidden version of a drawing does not hide the description of the version
   assert.doesNotMatch(body!.text, /ONLY_HIDDEN_DRAWING/);
 });
 
+test("a drawing's holder keeps its other images and text, and hidden words do not count as shown", () => {
+  const held = readable(page(
+    `<figure><div role="img" aria-label="HOLDER_LABEL">${drawing("x")}<img src="/chart.png" alt="Chart"><p>KEPT_PARAGRAPH of the figure.</p></div><figcaption>Chart</figcaption></figure>`,
+  ), "https://example.com/article");
+  assert.deepEqual(held!.images.map((image) => image.url), ["https://example.com/chart.png"], held!.html);
+  assert.match(held!.text, /KEPT_PARAGRAPH of the figure\./);
+  assert.doesNotMatch(held!.html, /<svg/);
+  const noted = readable(page(
+    `<figure><svg aria-labelledby="note"><path d="M0 0L9 9"/></svg><span id="note" hidden>HIDDEN_NOTE explains the chart.</span><figcaption>Cap</figcaption></figure>`,
+  ), "https://example.com/article");
+  assert.equal(occurrences(noted!.text, "HIDDEN_NOTE explains the chart."), 1, noted!.html);
+});
+
 test("drawings without a description, and drawings outside figures, are still left out", () => {
   const body = readable(page(
     `<figure><svg aria-hidden="true"><path d="M0 0L9 9"/><text>ICON_LABEL</text></svg><img src="/chart.png" alt="Chart"><figcaption>Real chart</figcaption></figure>` +
