@@ -132,8 +132,8 @@ function drawingText(document: Doc, el: El): string[] {
 /**
  * An inline SVG drawing in a figure is not kept: its colours come from the page's stylesheet and its
  * labels are not prose. The drawing is the figure's [role="img"] element holding the svg, else the svg;
- * a holder with text or images of its own keeps them, and only its svgs are replaced. The drawing's
- * own text alternative stands in for it as a paragraph, written as text, never as markup. The page
+ * a holder with text or images of its own keeps them, and only its svgs are replaced by its text. The
+ * drawing's own text alternative stands in for it as a paragraph, written as text, never as markup. The page
  * hides the drawing from screen readers (aria-hidden) because that text is read instead, so only hidden
  * and style carry over. Wide and narrow versions of one figure give the same text once, from a version
  * that is shown. Words the figure shows (its caption, a heading, not hidden text) are not repeated; a
@@ -145,16 +145,18 @@ function describeFigureDrawings(document: Doc) {
     const figure = svg.closest("figure");
     if (!figure) continue; // inside a drawing already replaced
     const holder = svg.closest('[role="img"]');
-    const drawing = holder && holder !== figure && figure.contains(holder) && onlyDrawings(holder) ? holder : svg;
-    const lines = drawingText(document, drawing);
-    if (!lines.length && drawing !== svg) lines.push(...drawingText(document, svg));
+    const held = holder && holder !== figure && figure.contains(holder) ? holder : null;
+    // The holder describes the drawing; it is replaced whole only when it holds nothing else.
+    const drawing = held && onlyDrawings(held) ? held : svg;
+    const lines = held ? drawingText(document, held) : [];
+    if (!lines.length) lines.push(...drawingText(document, svg));
     const text = lines.join(" ");
     if (!text) continue;
     let seen = figures.get(figure);
     if (!seen) {
       const copy = figure.cloneNode(true) as El;
       for (const el of copy.querySelectorAll('svg, [role="img"], [hidden], [style]')) {
-        if (el.localName === "svg" || el.getAttribute("role") === "img" || hiddenIn(el, copy)) el.remove();
+        if (el.localName === "svg" || (el.getAttribute("role") === "img" && onlyDrawings(el)) || hiddenIn(el, copy)) el.remove();
       }
       seen = { shown: words(copy.textContent ?? ""), texts: new Map() };
       figures.set(figure, seen);

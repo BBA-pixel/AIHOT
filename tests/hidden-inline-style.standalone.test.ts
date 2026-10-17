@@ -100,7 +100,12 @@ test("a drawing's holder keeps its other images and text, and hidden words do no
   ), "https://example.com/article");
   assert.deepEqual(held!.images.map((image) => image.url), ["https://example.com/chart.png"], held!.html);
   assert.match(held!.text, /KEPT_PARAGRAPH of the figure\./);
+  assert.equal(occurrences(held!.text, "HOLDER_LABEL"), 1, "the holder's description stands in for its svg");
   assert.doesNotMatch(held!.html, /<svg/);
+  const repeated = readable(page(
+    `<figure><div role="img"><svg><title>Quarterly revenue</title><path d="M0 0L9 9"/></svg><p>Quarterly revenue</p></div><figcaption>Cap</figcaption></figure>`,
+  ), "https://example.com/article");
+  assert.equal(occurrences(repeated!.text, "Quarterly revenue"), 1, "words the holder keeps count as shown");
   const noted = readable(page(
     `<figure><svg aria-labelledby="note"><path d="M0 0L9 9"/></svg><span id="note" hidden>HIDDEN_NOTE explains the chart.</span><figcaption>Cap</figcaption></figure>`,
   ), "https://example.com/article");
