@@ -37,6 +37,24 @@ test("no date at all is null", () => {
   assert.equal(iso("yesterday"), null);
 });
 
+test('"at" between the date and the time joins them like a space', () => {
+  assert.equal(iso("Sep 26, 2026 at 10:30"), "2026-09-26T02:30:00.000Z");
+  assert.equal(iso("Published Sep 26, 2026 at 10:30 AM"), "2026-09-26T02:30:00.000Z");
+  assert.equal(iso("September 26, 2026 at 10:30 AM EST"), "2026-09-26T15:30:00.000Z");
+  assert.equal(iso("March 8, 2026 at 02:30", "+00:00"), "2026-03-08T02:30:00.000Z");
+  assert.equal(iso("2026-09-26 at 10:30"), "2026-09-26T02:30:00.000Z");
+  assert.equal(iso("09/26/2026 at 10:30"), "2026-09-26T02:30:00.000Z");
+  assert.deepEqual(readPublicationDate("2026-09-26 at 10:30").publicationTime, "2026-09-26T02:30:00.000Z");
+});
+
+test("an abbreviated month may end with a period", () => {
+  assert.equal(iso("Sept. 26, 2026"), "2026-09-25T16:00:00.000Z");
+  assert.equal(iso("Published Sept. 26, 2026"), "2026-09-25T16:00:00.000Z");
+  assert.equal(iso("26 Sept. 2026"), "2026-09-25T16:00:00.000Z");
+  assert.equal(iso("Sept. 26, 2026, 10:30 AM EDT"), "2026-09-26T14:30:00.000Z");
+  assert.equal(iso("Feb. 30, 2026"), null);
+});
+
 test("English wall-clock dates are not shifted by the host's daylight-saving gap", () => {
   const zone = process.env.TZ;
   try {

@@ -32,7 +32,8 @@ function atOffset(y: string | number, mo: string | number, d: string | number, h
  */
 export function parseLooseDate(value: string | null | undefined, utcOffset = "+08:00"): Date | null {
   if (!value) return null;
-  const v = value.trim();
+  // "Sep 26, 2026 at 10:30": "at" joins a date and its time like a space.
+  const v = value.trim().replace(/(\d),?\s+at\s+(?=\d{1,2}:\d{2})/gi, "$1 ");
   if (!v) return null;
   const compact = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(v);
   if (compact) return atOffset(compact[1]!, compact[2]!, compact[3]!, compact[4]!, compact[5]!, compact[6]!, utcOffset);
@@ -40,8 +41,8 @@ export function parseLooseDate(value: string | null | undefined, utcOffset = "+0
   const monthFirst = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})(?:(?:T|\s+)(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(v);
   const numeric = yearFirst ?? monthFirst?.map((part, i, match) => i === 1 ? match[3]! : i === 2 ? match[1]! : i === 3 ? match[2]! : part);
   if (numeric && !calendarDay(numeric[1]!, numeric[2]!, numeric[3]!)) return null;
-  const english = /\b([a-z]{3,9})\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(\d{4})\b/i.exec(v)
-    ?? /\b(\d{1,2})\s+([a-z]{3,9})[,]?\s+(\d{2}|\d{4})\b/i.exec(v)?.map((part, i, match) => i === 1 ? match[2]! : i === 2 ? match[1]! : part);
+  const english = /\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(\d{4})\b/i.exec(v)
+    ?? /\b(\d{1,2})\s+([a-z]{3,9})\.?[,]?\s+(\d{2}|\d{4})\b/i.exec(v)?.map((part, i, match) => i === 1 ? match[2]! : i === 2 ? match[1]! : part);
   if (english) {
     if (english[3]!.length === 2) english[3] = String(Number(english[3]) + (Number(english[3]) < 50 ? 2000 : 1900));
     const month = Date.parse(`${english[1]} 1, ${english[3]} 00:00:00 GMT`);
