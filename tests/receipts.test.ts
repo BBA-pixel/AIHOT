@@ -398,3 +398,22 @@ test("a resource-level 403 (a private account) stops nothing", async () => {
     await sql`DELETE FROM receipts WHERE service = ${service}`;
   }
 });
+
+test("one model's spent quota stops that model, not the service's other models", async () => {
+  // dashscope's free quota is per model: the refused-provider alert is per model too (operations/alerts.ts).
+  const vision = `vision-${tag()}`;
+  const text = `text-${tag()}`;
+  try {
+    await assert.rejects(paidRequest({ service: "dashscope", model: vision, purpose: "invariant_test", identity: "vision" }, async () => {
+      assertAccepted("dashscope", 429, '{"code":"Throttling.AllocationQuota","message":"Free allocated quota exceeded."}');
+      return { response: null };
+    }), ProviderRejectedError);
+    assert.equal((await sql`SELECT 1 FROM settings WHERE key = ${providerStopKey("dashscope", vision)}`).length, 1, "the refused model is stopped");
+    let sent = 0;
+    await paidRequest({ service: "dashscope", model: text, purpose: "invariant_test", identity: "text" }, async () => { sent += 1; return { response: { ok: true } }; });
+    assert.equal(sent, 1, "another model of the same service is still called");
+  } finally {
+    await sql`DELETE FROM receipts WHERE service = 'dashscope' AND model IN (${vision}, ${text})`;
+    await sql`DELETE FROM settings WHERE key = ${providerStopKey("dashscope", vision)}`;
+  }
+});

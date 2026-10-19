@@ -196,35 +196,36 @@ interface ReceiptRow {
 /** How long a provider's access/billing refusal stops new calls to it. */
 export const PROVIDER_STOP_SECONDS = 900;
 /** The stop is a state, not a finding: the refused-provider alert (operations/alerts.ts) stays open until a
- * newer successful call, so the stop expiring never reads as a recovery. */
-export const providerStopKey = (service: string) => `provider.stop.${service}`;
+ * newer successful call, so the stop expiring never reads as a recovery. Like that alert it is per model:
+ * a quota can be one model's (dashscope's free quota), and the service's other models stay callable. */
+export const providerStopKey = (service: string, model?: string | null) => `provider.stop.${service}${model == null ? "" : `:${encodeURIComponent(model)}`}`;
 
-/** Until when new calls to this service are stopped, in epoch milliseconds; null when it may be called. */
-async function stopUntil(tx: Db, service: string): Promise<number | null> {
-  const [row] = await tx<{ value: { until?: string } }[]>`SELECT value FROM settings WHERE key = ${providerStopKey(service)}`;
+/** Until when new calls under this stop are held, in epoch milliseconds; null when they may be sent. */
+async function stopUntil(tx: Db, key: string): Promise<number | null> {
+  const [row] = await tx<{ value: { until?: string } }[]>`SELECT value FROM settings WHERE key = ${key}`;
   const until = Date.parse(row?.value?.until ?? "");
   return Number.isFinite(until) && until > Date.now() ? until : null;
 }
 
 /** Record the stop an access refusal implies, and drop the ones that expired a day ago while here. */
-async function stopForRefusal(tx: Db, service: string): Promise<void> {
+async function stopForRefusal(tx: Db, key: string): Promise<void> {
   const now = Date.now();
   const until = new Date(now + PROVIDER_STOP_SECONDS * 1000).toISOString();
-  await tx`INSERT INTO settings (key, value, updated_by) VALUES (${providerStopKey(service)}, ${tx.json({ until, refusedAt: new Date(now).toISOString() })}, 'receipts')
+  await tx`INSERT INTO settings (key, value, updated_by) VALUES (${key}, ${tx.json({ until, refusedAt: new Date(now).toISOString() })}, 'receipts')
            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`;
   await tx`DELETE FROM settings WHERE key LIKE 'provider.stop.%'
            AND coalesce((value->>'until')::timestamptz, 'epoch') < now() - interval '1 day'`;
 }
 
 /** A received answer proves access is back: the stop can go. */
-async function clearStop(tx: Db, service: string): Promise<void> {
-  await tx`DELETE FROM settings WHERE key = ${providerStopKey(service)}`;
+async function clearStop(tx: Db, key: string): Promise<void> {
+  await tx`DELETE FROM settings WHERE key = ${key}`;
 }
 
-async function checkBudget(tx: Db, service: string): Promise<void> {
-  // A service that refused on access or billing is not called again until its stop runs out: one refused
+async function checkBudget(tx: Db, service: string, model?: string | null): Promise<void> {
+  // A model that refused on access or billing is not called again until its stop runs out: one refused
   // request per cooldown, not one per article. Requests already in flight cannot be stopped.
-  const stopped = await stopUntil(tx, service);
+  const stopped = await stopUntil(tx, providerStopKey(service, model));
   if (stopped !== null) throw new BudgetExceededError(service, "provider", Math.ceil((stopped - Date.now()) / 1000));
   const [budget] = await tx<{ per_minute: number; per_hour: number; per_day: number }[]>`
     SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
@@ -270,14 +271,14 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
       }
       if (existing.status === "unknown") return { kind: "unknown" as const, row: existing };
       // failed: the provider did not take the request, or its answer was unusable; a new attempt is allowed.
-      await checkBudget(tx, req.service);
+      await checkBudget(tx, req.service, req.model);
       await beforeRequest?.(tx);
       const [r] = await tx<{ attempts: number }[]>`
         UPDATE receipts SET status = 'pending', attempts = attempts + 1, error = NULL, updated_at = now() WHERE id = ${existing.id} RETURNING attempts`;
       const attemptId = await startAttempt(tx, existing.id, r!.attempts, req);
       return { kind: "call" as const, id: existing.id, attemptId };
     }
-    await checkBudget(tx, req.service);
+    await checkBudget(tx, req.service, req.model);
     await beforeRequest?.(tx);
     const [row] = await tx<{ id: number }[]>`
       INSERT INTO receipts (logical_key, service, model, purpose, subject, status, request, attempts)
@@ -313,7 +314,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
     await sql.begin(async (tx) => {
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId}`;
       await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Math.round(performance.now() - started)}, finished_at = now() WHERE id = ${attemptId}`;
-      if (spendingRefused) await stopForRefusal(tx, req.service);
+      if (spendingRefused) await stopForRefusal(tx, providerStopKey(req.service, req.model));
     });
     // The first transport failure needs the same durable identity as a later unknown-result retry.
     if (status === "unknown") throw new ReceiptUnknownError(receiptId, message, { cause: error });
@@ -340,7 +341,7 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         latency_ms = ${Math.round(performance.now() - started)}, finished_at = now()
       WHERE id = ${attemptId}`;
     // A real answer is the only proof that access is back; it releases a stop without waiting for it.
-    await clearStop(tx, req.service);
+    await clearStop(tx, providerStopKey(req.service, req.model));
   });
   return { receiptId, response: outcome.response, reused: false };
 }
