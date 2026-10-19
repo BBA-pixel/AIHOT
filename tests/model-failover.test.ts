@@ -143,6 +143,9 @@ test("429 account refusals stop at the primary while temporary throttling can us
   assert.equal(backup.hits(), calls);
   assert.equal((await sql`SELECT value FROM settings WHERE key='model.circuit.zhipu'`)[0]!.value.failures, 0);
   assert.equal((await sql`SELECT status FROM receipt_attempts WHERE service='zhipu' ORDER BY id DESC LIMIT 1`)[0]!.status, "failed");
+  // A spent account pauses the service for a cooldown (providers/receipts.ts); the throttle below is
+  // about a service that can still be called.
+  await sql`DELETE FROM settings WHERE key='provider.stop.zhipu'`;
   primaryAnswer = () => new Reply(429, { error: { code: "1302", message: "请求频率过高" } });
   assert.equal((await chatJson({ ...opts, subject: `${opts.subject}-rate`, user: "rate-limited" })).model, "qwen3.8-flash");
   assert.equal(backup.hits(), calls + 1);

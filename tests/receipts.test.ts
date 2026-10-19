@@ -9,7 +9,7 @@ import { config } from "@aihot/backend/config";
 import { closeDb, sql } from "@aihot/backend/db";
 import { chatJson } from "@aihot/backend/providers/llm";
 import { embeddingsAvailable } from "@aihot/backend/providers/embeddings";
-import { assertAccepted, failureKind, ProviderRejectedError, BudgetExceededError, logicalKeyFor, markStalePendingReceipts, ModelOutputError, paidRequest, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
+import { assertAccepted, failureKind, ProviderRejectedError, BudgetExceededError, logicalKeyFor, markStalePendingReceipts, ModelOutputError, paidRequest, providerStopKey, ReceiptUnknownError } from "@aihot/backend/providers/receipts";
 import { autoReleaseUnknownReceipts } from "@aihot/backend/operations/recover";
 
 const usage = { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 };
@@ -318,4 +318,83 @@ test("an unknown outcome is released automatically once, so a lost answer costs 
   assert.equal(await status(), "unknown", "a second loss waits for the admin");
   await assert.rejects(paidRequest(req, lost), ReceiptUnknownError);
   assert.equal(sent, 2);
+});
+
+// The classification the alert layer already uses: a TPM/RPM throttle may pass; an account, spending or
+// access refusal stops new calls, because the same request would be refused again in a minute.
+test("a throttle is not a spent account: only an access or billing refusal stops calls", () => {
+  const throttle = (body: string) => assert.throws(
+    () => assertAccepted("dashscope", 429, body),
+    (error: unknown) => error instanceof ProviderRejectedError && error.retryable && !error.accessRefused,
+  );
+  throttle('{"code":"Throttling.AllocationQuota","message":"Allocated quota exceeded"}');
+  throttle('{"error":{"code":"insufficient_quota","message":"You exceeded your current quota, please check your plan and billing details."}}');
+  const refused = (body: string) => assert.throws(
+    () => assertAccepted("dashscope", 429, body),
+    (error: unknown) => error instanceof ProviderRejectedError && error.accessRefused,
+  );
+  refused('{"code":"CommodityNotPurchased","message":"product not purchased"}');
+  refused('{"type":"error","error":{"type":"GoUsageLimitError","message":"Go plan usage limit reached"}}');
+  refused('{"error":{"message":"insufficient balance"}}');
+});
+
+test("an access refusal stops new calls until the cooldown, and a real answer releases the stop", async () => {
+  const service = `invariant-stop-${tag()}`;
+  let sent = 0;
+  const refuse = async () => {
+    sent += 1;
+    assertAccepted(service, 402, '{"error":{"message":"insufficient balance"}}');
+    return { response: null };
+  };
+  try {
+    await assert.rejects(paidRequest({ service, purpose: "invariant_test", identity: "first" }, refuse), ProviderRejectedError);
+    assert.equal(sent, 1);
+    const [stop] = await sql<{ value: { until: string } }[]>`SELECT value FROM settings WHERE key = ${providerStopKey(service)}`;
+    assert.ok(stop, "the refusal records a stop");
+    // The attempt keeps the provider's own words, so the refused-provider alert classifies it the same way.
+    const [attempt] = await sql<{ error: string }[]>`SELECT error FROM receipt_attempts WHERE service = ${service} ORDER BY id DESC LIMIT 1`;
+    assert.match(attempt!.error, /insufficient balance/);
+
+    // The next logical request is stopped before it is sent.
+    await assert.rejects(paidRequest({ service, purpose: "invariant_test", identity: "second" }, refuse), BudgetExceededError);
+    assert.equal(sent, 1, "no request reaches the provider while the stop holds");
+
+    // A stop, not a verdict: once the cooldown runs out a probe is allowed.
+    await sql`UPDATE settings SET value = jsonb_build_object('until', ${new Date(Date.now() - 1000).toISOString()}::text) WHERE key = ${providerStopKey(service)}`;
+    const ok = await paidRequest({ service, purpose: "invariant_test", identity: "third" }, async () => { sent += 1; return { response: { ok: true } }; });
+    assert.ok(ok.receiptId);
+    assert.equal(sent, 2, "calls resume after the cooldown");
+    assert.equal((await sql`SELECT 1 FROM settings WHERE key = ${providerStopKey(service)}`).length, 0, "a received answer releases the stop");
+  } finally {
+    await sql`DELETE FROM receipts WHERE service = ${service}`;
+    await sql`DELETE FROM settings WHERE key = ${providerStopKey(service)}`;
+  }
+});
+
+test("a TPM throttle does not stop the service", async () => {
+  const service = `invariant-throttle-${tag()}`;
+  let sent = 0;
+  try {
+    await assert.rejects(paidRequest({ service, purpose: "invariant_test", identity: "throttle" }, async () => {
+      sent += 1;
+      assertAccepted(service, 429, '{"code":"Throttling.AllocationQuota","message":"Allocated quota exceeded"}');
+      return { response: null };
+    }), ProviderRejectedError);
+    assert.equal(sent, 1);
+    assert.equal((await sql`SELECT 1 FROM settings WHERE key = ${providerStopKey(service)}`).length, 0, "a temporary throttle leaves the service callable");
+  } finally {
+    await sql`DELETE FROM receipts WHERE service = ${service}`;
+  }
+});
+test("a resource-level 403 (a private account) stops nothing", async () => {
+  const service = `invariant-private-${tag()}`;
+  try {
+    await assert.rejects(paidRequest({ service, purpose: "invariant_test", identity: "private" }, async () => {
+      assertAccepted(service, 403, '{"error":{"message":"Forbidden: user privacy settings"}}');
+      return { response: null };
+    }), ProviderRejectedError);
+    assert.equal((await sql`SELECT 1 FROM settings WHERE key = ${providerStopKey(service)}`).length, 0, "one private resource does not stop the service");
+  } finally {
+    await sql`DELETE FROM receipts WHERE service = ${service}`;
+  }
 });

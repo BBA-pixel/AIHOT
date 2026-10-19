@@ -428,6 +428,9 @@ test("account 429 pauses translation without spending the article attempts", asy
   try {
     for (let run=0;run<3;run++) await translatePending({limit:1});
     assert.equal((await sql`SELECT 1 FROM translation_attempts WHERE article_id=${id}`).length,0);
+    // The account refusal paused the service for a cooldown; access is restored here, and the cooldown
+    // has to pass before the same service is called again.
+    await sql`DELETE FROM settings WHERE key='provider.stop.zhipu'`;
     pointModels(provider.url,["glm-5.3-flash"]);
     const restored=await translatePending({limit:1});
     assert.equal(restored.done.find(r=>r.articleId===id)?.status,"translated");

@@ -120,6 +120,20 @@ export function providerAccessRefused(service: string, error: string): boolean {
   return /\binsufficient (?:account |credit )?balance\b|\b(?:credit )?balance (?:is )?(?:exhausted|insufficient)\b|账户.*欠费|余额不足/i.test(message);
 }
 
+/**
+ * A refusal that every later request would meet too: the account cannot pay or the plan is spent.
+ * A 401/403 can be about one resource (a private post), and a 429 can be a TPM/RPM throttle, so neither
+ * stops anything; the alert layer still reports them.
+ */
+export function providerSpendingRefused(service: string, error: string): boolean {
+  const http = /(?:^| )HTTP (\d{3})(?:: ?| )([\s\S]*)$/.exec(error);
+  if (!http) return false;
+  const status = Number(http[1]);
+  if (status === 402) return true;
+  if (status !== 429) return false;
+  return providerAccessRefused(service, error);
+}
+
 /** A temporary rate limit can pass; account/spending refusals need access restored first. */
 export function assertAccepted(service: string, status: number, body: string): void {
   if (status >= 200 && status < 300) return;
@@ -179,7 +193,39 @@ interface ReceiptRow {
   updated_at: Date;
 }
 
+/** How long a provider's access/billing refusal stops new calls to it. */
+export const PROVIDER_STOP_SECONDS = 900;
+/** The stop is a state, not a finding: the refused-provider alert (operations/alerts.ts) stays open until a
+ * newer successful call, so the stop expiring never reads as a recovery. */
+export const providerStopKey = (service: string) => `provider.stop.${service}`;
+
+/** Until when new calls to this service are stopped, in epoch milliseconds; null when it may be called. */
+async function stopUntil(tx: Db, service: string): Promise<number | null> {
+  const [row] = await tx<{ value: { until?: string } }[]>`SELECT value FROM settings WHERE key = ${providerStopKey(service)}`;
+  const until = Date.parse(row?.value?.until ?? "");
+  return Number.isFinite(until) && until > Date.now() ? until : null;
+}
+
+/** Record the stop an access refusal implies, and drop the ones that expired a day ago while here. */
+async function stopForRefusal(tx: Db, service: string): Promise<void> {
+  const now = Date.now();
+  const until = new Date(now + PROVIDER_STOP_SECONDS * 1000).toISOString();
+  await tx`INSERT INTO settings (key, value, updated_by) VALUES (${providerStopKey(service)}, ${tx.json({ until, refusedAt: new Date(now).toISOString() })}, 'receipts')
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`;
+  await tx`DELETE FROM settings WHERE key LIKE 'provider.stop.%'
+           AND coalesce((value->>'until')::timestamptz, 'epoch') < now() - interval '1 day'`;
+}
+
+/** A received answer proves access is back: the stop can go. */
+async function clearStop(tx: Db, service: string): Promise<void> {
+  await tx`DELETE FROM settings WHERE key = ${providerStopKey(service)}`;
+}
+
 async function checkBudget(tx: Db, service: string): Promise<void> {
+  // A service that refused on access or billing is not called again until its stop runs out: one refused
+  // request per cooldown, not one per article. Requests already in flight cannot be stopped.
+  const stopped = await stopUntil(tx, service);
+  if (stopped !== null) throw new BudgetExceededError(service, "provider", Math.ceil((stopped - Date.now()) / 1000));
   const [budget] = await tx<{ per_minute: number; per_hour: number; per_day: number }[]>`
     SELECT per_minute, per_hour, per_day FROM budgets WHERE service = ${service}`;
   if (!budget) return; // default rows come with the migrations; a service an operator removed is unlimited
@@ -258,12 +304,16 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
   try {
     outcome = await call();
   } catch (error) {
+    // The same classification the alert layer uses, narrowed to what no later request can avoid: an
+    // account/spending refusal (not a throttle or a private resource) also stops new calls to the service.
+    const spendingRefused = error instanceof ProviderRejectedError && providerSpendingRefused(req.service, error.message);
     const status = error instanceof ProviderRejectedError ? "failed" : "unknown";
     // "unknown": the request may have reached the provider (timeout, reset): do not re-send automatically.
     const message = (error instanceof ProviderRejectedError ? error.message : String(error)).slice(0, 2000);
     await sql.begin(async (tx) => {
       await tx`UPDATE receipts SET status = ${status}, error = ${message}, updated_at = now() WHERE id = ${receiptId}`;
       await tx`UPDATE receipt_attempts SET status = ${status}, error = ${message}, latency_ms = ${Math.round(performance.now() - started)}, finished_at = now() WHERE id = ${attemptId}`;
+      if (spendingRefused) await stopForRefusal(tx, req.service);
     });
     // The first transport failure needs the same durable identity as a later unknown-result retry.
     if (status === "unknown") throw new ReceiptUnknownError(receiptId, message, { cause: error });
@@ -289,6 +339,8 @@ export async function paidRequest(req: ReceiptRequest, call: () => Promise<CallO
         cost = ${outcome.cost?.amount ?? null}, currency = ${outcome.cost?.currency ?? null}, cost_basis = ${outcome.cost?.basis ?? null},
         latency_ms = ${Math.round(performance.now() - started)}, finished_at = now()
       WHERE id = ${attemptId}`;
+    // A real answer is the only proof that access is back; it releases a stop without waiting for it.
+    await clearStop(tx, req.service);
   });
   return { receiptId, response: outcome.response, reused: false };
 }
