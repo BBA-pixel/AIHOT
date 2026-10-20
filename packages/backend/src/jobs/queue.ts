@@ -2,16 +2,28 @@
 // retry policy: business code enqueues by name, the worker registers one handler per queue (jobs/*.ts),
 // and both sides are checked against JobData, so a payload cannot drift between producer and consumer.
 // A module declares its own queues (modules.ts ModuleQueue), typed by the queue in the same way.
-import { PgBoss, type SendOptions, type WorkOptions } from "pg-boss";
+import { PgBoss, type Job, type SendOptions, type WorkOptions } from "pg-boss";
+import type { WorkerConcurrency } from "@aihot/contracts/admin";
 import { config } from "../config.ts";
 import { sql, type Db } from "../db.ts";
 import { shutdownSignal } from "../lib/shutdown.ts";
 import { logError } from "../lib/log-error.ts";
 import { serverModules, type ModuleQueue } from "../modules.ts";
+import { CONCURRENCY_QUEUES, loadWorkerConcurrency } from "./concurrency.ts";
 export { shutdownSignal } from "../lib/shutdown.ts";
 
 let boss: PgBoss | null = null;
 let starting: Promise<PgBoss> | null = null;
+
+interface ManagedWorker {
+  key: keyof WorkerConcurrency;
+  concurrency: number;
+  resize: (concurrency: number) => Promise<void>;
+}
+
+const managedWorkers = new Map<string, ManagedWorker>();
+let concurrencyPoll: ReturnType<typeof setInterval> | null = null;
+let refreshingConcurrency: Promise<void> | null = null;
 
 export interface JobData {
   "content.analyze": { articleId: string; attemptTag?: string };
@@ -83,6 +95,8 @@ export const STOP_TIMEOUT_MS = 470_000;
 
 export async function stopBoss(): Promise<void> {
   shutdownSignal.abort();
+  if (concurrencyPoll) clearInterval(concurrencyPoll);
+  concurrencyPoll = null;
   if (boss) {
     const draining = boss;
     const started = performance.now();
@@ -114,6 +128,7 @@ export async function stopBoss(): Promise<void> {
   }
   boss = null;
   starting = null;
+  managedWorkers.clear();
 }
 
 export async function ensureQueue(name: string, options: QueueOptions = QUEUE_OPTIONS[name as QueueName] ?? {}): Promise<void> {
@@ -164,7 +179,49 @@ export async function retryReleasedReceiptJobs(): Promise<number> {
 /** The worker's handler for one queue (jobs/*.ts), called with each job's data. */
 export async function work<Q extends QueueName>(boss: PgBoss, name: Q, options: WorkOptions, handler: (data: JobData[Q]) => Promise<unknown>): Promise<void> {
   await ensureQueue(name);
-  await boss.work<JobData[Q]>(name, options, async ([job]) => (job ? handler(job.data) : undefined));
+  const callback = async ([job]: Job<JobData[Q]>[]) => (job ? handler(job.data) : undefined);
+  const key = (Object.keys(CONCURRENCY_QUEUES) as Array<keyof WorkerConcurrency>).find(key => CONCURRENCY_QUEUES[key] === name);
+  if (!key) {
+    await boss.work<JobData[Q]>(name, options, callback);
+    return;
+  }
+  const { values } = await loadWorkerConcurrency();
+  const start = (concurrency: number) => boss.work<JobData[Q]>(name, { ...options, localConcurrency: concurrency }, callback);
+  let id = await start(values[key]);
+  const worker: ManagedWorker = {
+    key,
+    concurrency: values[key],
+    resize: async (concurrency) => {
+      // offWork stops fetching immediately and waits for every handler in this registration.
+      // pg-boss retains stopping workers, so process shutdown can still drain the same paid calls.
+      await boss.offWork(name, { id, wait: true });
+      if (shutdownSignal.signal.aborted) return;
+      id = await start(concurrency);
+      worker.concurrency = concurrency;
+    },
+  };
+  managedWorkers.set(name, worker);
+}
+
+/** Apply saved limits to this worker without interrupting a running task or claiming extra work. */
+export function refreshWorkerConcurrency(): Promise<void> {
+  refreshingConcurrency ??= (async () => {
+    if (shutdownSignal.signal.aborted) return;
+    const { values } = await loadWorkerConcurrency();
+    if (shutdownSignal.signal.aborted) return;
+    await Promise.all([...managedWorkers.values()].map(worker =>
+      worker.concurrency === values[worker.key] ? undefined : worker.resize(values[worker.key])));
+  })().finally(() => { refreshingConcurrency = null; });
+  return refreshingConcurrency;
+}
+
+/** Settings are shared by API and worker processes; each worker applies changes independently. */
+export function watchWorkerConcurrency(): void {
+  if (concurrencyPoll) return;
+  concurrencyPoll = setInterval(() => {
+    void refreshWorkerConcurrency().catch(error => console.error("[worker concurrency]", logError(error)));
+  }, 10_000);
+  concurrencyPoll.unref();
 }
 
 /** The worker's handlers for the site's modules' queues. */

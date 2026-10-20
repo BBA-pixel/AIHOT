@@ -14,7 +14,7 @@ import { banFeedbackEmail, banSource, eraseFeedback, feedbackScreenshot, listFee
 import { requeueFailedArticles, runsOverview } from "@aihot/backend/admin/runs";
 import { resolveDelivery } from "@aihot/backend/notify/deliver";
 import { releaseReceipt } from "@aihot/backend/operations/recover";
-import { replaceContactQr, setTargetEnabled, settingsOverview, updateBudget } from "@aihot/backend/admin/settings";
+import { replaceContactQr, setTargetEnabled, settingsOverview, updateBudget, updateWorkerConcurrency } from "@aihot/backend/admin/settings";
 import { createSource, fetchNow, listSources, previewSource, previewStoredSource, sourceDetail, updateSource } from "@aihot/backend/admin/sources";
 import { sendProblem } from "../http/respond.ts";
 import { adminHandler } from "./admin-auth.ts";
@@ -97,6 +97,7 @@ export function registerAdmin(app: FastifyInstance) {
 
   // Settings
   app.get("/api/admin/settings", adminHandler(async () => settingsOverview()));
+  app.put("/api/admin/settings/concurrency", adminHandler(async (req, _reply, admin) => updateWorkerConcurrency(body(req), actorOf(admin))));
   app.post("/api/admin/settings/contact-qr", adminHandler(async (req, _reply, admin) => {
     const b = body<{ slot: "wechatQr" | "feishuQr"; image: string }>(req);
     return replaceContactQr({ slot: b.slot, data: decodeImage(b.image) }, actorOf(admin));

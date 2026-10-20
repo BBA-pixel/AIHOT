@@ -2,7 +2,7 @@
 // modules (site/modules/server.ts).
 import { assertProductionSecrets } from "@aihot/backend/config";
 import { closeDb } from "@aihot/backend/db";
-import { getBoss, stopBoss, workModuleQueues } from "@aihot/backend/jobs/queue";
+import { getBoss, stopBoss, watchWorkerConcurrency, workModuleQueues } from "@aihot/backend/jobs/queue";
 import { installModules } from "@aihot/backend/modules";
 import { SERVER_MODULES } from "@aihot/site/modules/server";
 import { registerContentJobs } from "@aihot/backend/jobs/content";
@@ -26,6 +26,7 @@ await registerNotifyJobs(boss);
 await registerPublicationJobs(boss);
 await workModuleQueues(boss);
 await registerSchedules(boss);
+watchWorkerConcurrency();
 const heartbeat = startHeartbeat("worker");
 console.log(JSON.stringify({ level: "info", msg: "worker started", pid: process.pid }));
 

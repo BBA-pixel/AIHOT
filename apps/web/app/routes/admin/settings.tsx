@@ -1,7 +1,7 @@
 import { ADMIN, SITE } from "@aihot/site";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import type { Route } from "./+types/settings";
-import type { AdminSettings } from "@aihot/contracts/admin";
+import { MAX_WORKER_CONCURRENCY, type AdminSettings, type WorkerConcurrency } from "@aihot/contracts/admin";
 import { adminGet } from "../../lib/admin.server";
 import { useAdminAction } from "../../features/admin/action";
 import { bj, num } from "../../features/admin/format";
@@ -99,6 +99,66 @@ function TargetToggle({ t }: { t: AdminSettings["targets"][number] }) {
   );
 }
 
+const CONCURRENCY_FIELDS: Array<{ key: keyof WorkerConcurrency; label: string; hint: string }> = [
+  { key: "analyze", label: "内容分析", hint: "预筛、评分与内容理解的文章任务数" },
+  { key: "fetch", label: "信源采集", hint: "同时抓取的 RSS、网页或 JSON 信源数" },
+  { key: "extract", label: "正文提取", hint: "同时读取和清洗正文的文章数" },
+  { key: "digest", label: "事件综述", hint: "同时生成综述的事件数" },
+];
+
+function ConcurrencySettings({ settings }: { settings: AdminSettings["concurrency"] }) {
+  const id = useId();
+  const { run, busy, pending } = useAdminAction();
+  const [values, setValues] = useState<Record<keyof WorkerConcurrency, string>>({
+    analyze: String(settings.values.analyze), fetch: String(settings.values.fetch),
+    extract: String(settings.values.extract), digest: String(settings.values.digest),
+  });
+  const [touched, setTouched] = useState<Partial<Record<keyof WorkerConcurrency, boolean>>>({});
+  const [open, setOpen] = useState(false);
+  const valid = (key: keyof WorkerConcurrency) => values[key].trim() !== "" && Number.isInteger(Number(values[key]))
+    && Number(values[key]) >= 1 && Number(values[key]) <= MAX_WORKER_CONCURRENCY;
+  const allValid = CONCURRENCY_FIELDS.every(({ key }) => valid(key));
+  const changed = CONCURRENCY_FIELDS.some(({ key }) => Number(values[key]) !== settings.values[key]);
+  return (
+    <Card className="mt-5" title="任务并发">
+      <p className="text-[13px] leading-relaxed text-ink-3">
+        每项为一个工作进程同时处理的任务数。保存后自动应用，正在执行的任务会正常完成。
+        任务并发不等于模型请求总并发：内容分析中的评分与结构抽取可能并行，不同任务队列也可能同时调用模型；两次独立评分本身按顺序执行。事件归组保持串行。
+      </p>
+      <fieldset disabled={busy} className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <legend className="sr-only">后台任务并发设置</legend>
+        {CONCURRENCY_FIELDS.map(({ key, label, hint }) => {
+          const error = touched[key] && !valid(key);
+          return (
+            <div key={key} className="min-w-0">
+              <label htmlFor={`${id}-${key}`} className="mb-1 block text-[12.5px] font-medium text-ink-2">{label}</label>
+              <Input id={`${id}-${key}`} className="min-h-11 sm:min-h-0" type="number" inputMode="numeric" min={1} max={MAX_WORKER_CONCURRENCY} step={1}
+                value={values[key]} aria-invalid={error || undefined}
+                aria-describedby={`${id}-${key}-hint${error ? ` ${id}-${key}-error` : ""}`}
+                onChange={e => setValues({ ...values, [key]: e.target.value })}
+                onBlur={() => setTouched({ ...touched, [key]: true })} />
+              <p id={`${id}-${key}-hint`} className="mt-1 text-[12px] leading-relaxed text-ink-4">{hint}</p>
+              {error && <p id={`${id}-${key}-error`} role="alert" className="mt-1 text-[12px] text-hot">请输入 1–{MAX_WORKER_CONCURRENCY} 的整数</p>}
+            </div>
+          );
+        })}
+      </fieldset>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[12px] text-ink-4">
+          {settings.configured ? `后台设置更新于 ${bj(settings.updatedAt)}` : "当前使用部署默认值；保存后优先使用后台设置。"}
+        </p>
+        <Button className="min-h-11 sm:min-h-0" tone="primary" disabled={!changed || !allValid || busy} onClick={() => setOpen(true)}>保存并发设置</Button>
+      </div>
+      <ReasonDialog open={open} title="调整任务并发" confirmLabel="保存设置"
+        description="较低并发会减轻接口和服务器压力，积压任务需要更长时间处理。改动会自动应用，已经开始的任务不会被中断。"
+        busy={pending === "concurrency"} onClose={() => setOpen(false)}
+        onSubmit={async reason => (await run("PUT", "/api/admin/settings/concurrency", {
+          values: Object.fromEntries(CONCURRENCY_FIELDS.map(({ key }) => [key, Number(values[key])])), reason,
+        }, { label: "concurrency", success: "并发设置已保存，正在应用" })) !== null} />
+    </Card>
+  );
+}
+
 export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
   return (
     <AdminPage title="设置" subtitle="不改代码即可替换的运营设置。每次修改都写入审计记录。">
@@ -122,6 +182,7 @@ export default function SettingsAdmin({ loaderData: s }: Route.ComponentProps) {
           />
         </Card>
       </div>
+      <ConcurrencySettings key={s.concurrency.updatedAt ?? JSON.stringify(s.concurrency.values)} settings={s.concurrency} />
       <Card className="mt-5" title="付费请求上限" right={<span>已用：近 1 小时 / 近 24 小时</span>} pad={false}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-[13px]">

@@ -340,6 +340,22 @@ export interface AdminSettings {
   contact: { wechatQr: string | null; feishuQr: string | null };
   targets: AdminNotifyTarget[];
   budgets: AdminBudget[];
+  concurrency: AdminWorkerConcurrency;
+}
+
+export const MAX_WORKER_CONCURRENCY = 32;
+
+export interface WorkerConcurrency {
+  analyze: number;
+  fetch: number;
+  extract: number;
+  digest: number;
+}
+
+export interface AdminWorkerConcurrency {
+  values: WorkerConcurrency;
+  configured: boolean;
+  updatedAt: Timestamp | null;
 }
 
 // Models and evaluation
