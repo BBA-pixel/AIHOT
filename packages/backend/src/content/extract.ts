@@ -56,13 +56,10 @@ export function isSignInUrl(url: string): boolean {
  * entered the pool under a title of "220".
  */
 export function isSignInRedirect(asked: string, landed: string): boolean {
-  if (asked === landed) return false;
   try {
-    const from = new URL(asked);
-    const to = new URL(landed);
-    // An address that only normalised (www, trailing slash, host case) did not go anywhere.
-    if (from.pathname === to.pathname && from.search === to.search) return false;
-    return AUTH_PATH.test(to.pathname);
+    // An address already on such a path was not sent anywhere: a registry page at ".../register" that
+    // only gained a trailing slash is still the page that was asked for.
+    return !AUTH_PATH.test(new URL(asked).pathname) && AUTH_PATH.test(new URL(landed).pathname);
   } catch {
     return false;
   }

@@ -33,6 +33,7 @@ const readerPages: Record<string, string> = {
 const server = http.createServer((req, res) => {
   // The redirect has to answer before the default headers: a source URL the site sends to its sign-in form.
   if (req.url === "/redirect") { res.writeHead(302, { location: "/login" }); return void res.end(); }
+  if (req.url === "/brand/register") { res.writeHead(301, { location: "/brand/register/" }); return void res.end(); }
   res.writeHead(200, { "content-type": req.url?.startsWith("/reader/") ? "text/plain" : "text/html", "x-usage-tokens": "100" });
   if (req.url?.startsWith("/reader/")) {
     readerHits++;
@@ -41,6 +42,7 @@ const server = http.createServer((req, res) => {
   // The form itself is long enough to be mistaken for a body by the length and density checks.
   if (req.url === "/article") return void res.end(html("Password autofill in browsers", autofill));
   if (req.url === "/login") return void res.end(signInPage);
+  if (req.url === "/brand/register/") return void res.end(html("The certified products register", prose));
   if (req.url === "/listing") return void res.end(`<html><body>
     <article><a href="/article">Password autofill in browsers</a></article>
     <nav><a href="/login">Log in</a><a href="/signup">Sign up</a></nav>
@@ -105,6 +107,9 @@ test("a redirect to a sign-in form cannot become the body", async () => {
   // An article that merely mentions signing in and passwords is still an article.
   const got = await extractFromUrl(`${base}/article`, `article:${T}:autofill`, {}, { paidFallback: false });
   assert.ok(got?.text.includes("password managers"), "text about sign-in forms is not a sign-in redirect");
+  // A page that is itself on such a path and only gains a trailing slash was not sent to sign in.
+  const registry = await extractFromUrl(`${base}/brand/register`, `article:${T}:registry`, {}, { paidFallback: false });
+  assert.ok(registry?.text.includes("real report"), "a redirect between two addresses of the same page is no sign-in redirect");
 });
 
 // A listing's navigation links to the site's sign-in and registration pages; they are not posts.
