@@ -35,17 +35,6 @@ const MIN_BODY_CHARS = 200;
  */
 const AUTH_PATH = /(?:^|\/)(?:login|log-in|signin|sign-in|register|signup|sign-up|authorize|oauth2?|sso|auth)(?:\/|$)/i;
 
-/**
- * A redirect that ended on a sign-in form: the site sent us to authenticate instead of to the page.
- * Read from the final address of the fetch, never from the text, so an article that merely mentions
- * signing in is untouched — a real one (an IT之家 piece about password autofill) reads like a login
- * page to any text test.
- *
- * The real case: a source built arxiv.org URLs and HuggingFace answered with its login page. The
- * sign-in form passed the length test and became the body, its navigation differed between fetches so
- * every fetch looked like a new revision of the article (one reached 26 revisions), and the article
- * entered the pool under a title of "220".
- */
 /** Whether an address is a sign-in form's own path (a listing's "Log in" link is no post either). */
 export function isSignInUrl(url: string): boolean {
   try {
@@ -55,6 +44,17 @@ export function isSignInUrl(url: string): boolean {
   }
 }
 
+/**
+ * A redirect that ended on a sign-in form: the site sent us to authenticate instead of to the page.
+ * Read from the final address of the fetch, never from the text, so an article that merely mentions
+ * signing in is untouched — a real one (a news piece about password autofill) reads like a login
+ * page to any text test.
+ *
+ * The real case: a source built arxiv.org URLs and HuggingFace answered with its login page. The
+ * sign-in form passed the length test and became the body, its navigation differed between fetches so
+ * every fetch looked like a new revision of the article (one reached 26 revisions), and the article
+ * entered the pool under a title of "220".
+ */
 export function isSignInRedirect(asked: string, landed: string): boolean {
   if (asked === landed) return false;
   try {
