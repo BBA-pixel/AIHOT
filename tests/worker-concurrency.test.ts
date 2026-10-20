@@ -13,21 +13,17 @@ import { buildApp } from "../apps/api/src/app.ts";
 
 const app = await buildApp();
 const previous = { password: config.adminPassword, dev: config.devAdmin };
-const envNames = ["ANALYZE_CONCURRENCY", "FETCH_CONCURRENCY", "EXTRACT_CONCURRENCY", "DIGEST_CONCURRENCY"];
-const oldEnv = new Map(envNames.map(key => [key, process.env[key]]));
 const defaults: WorkerConcurrency = { analyze: 6, fetch: 8, extract: 4, digest: 3 };
 const low: WorkerConcurrency = { analyze: 1, fetch: 2, extract: 1, digest: 1 };
 
 beforeEach(async () => {
   config.adminPassword = "test-concurrency-password";
   config.devAdmin = null;
-  for (const key of envNames) delete process.env[key];
   await sql`DELETE FROM settings WHERE key = 'worker.concurrency'`;
 });
 after(async () => {
   await app.close(); await stopBoss(); await closeDb();
   config.adminPassword = previous.password; config.devAdmin = previous.dev;
-  for (const [key, value] of oldEnv) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
 });
 
 async function admin() {
@@ -53,20 +49,17 @@ test("concurrency settings require an admin and CSRF, reject invalid values, and
   assert.equal(response.statusCode, 200, response.body);
   assert.deepEqual(response.json().values, low);
   assert.equal(response.json().configured, true);
-  process.env.ANALYZE_CONCURRENCY = "12";
   const reloaded = await app.inject({ method: "GET", url: "/api/admin/settings", headers });
   assert.equal(reloaded.statusCode, 200, reloaded.body);
-  assert.deepEqual(reloaded.json().concurrency.values, low, "saved operator choices override deployment defaults");
+  assert.deepEqual(reloaded.json().concurrency.values, low, "saved operator choices survive a reload");
   const [entry] = await sql`SELECT before, after, reason FROM audit_log WHERE action='worker.concurrency.update' ORDER BY id DESC LIMIT 1`;
   assert.deepEqual(entry!.before, defaults);
   assert.deepEqual(entry!.after, low);
   assert.equal(entry!.reason, input.reason);
 });
 
-test("deployment defaults remain available before the first save, and concurrent saves retain an ordered audit", async () => {
-  process.env.ANALYZE_CONCURRENCY = "1";
-  process.env.FETCH_CONCURRENCY = "2";
-  assert.deepEqual((await loadWorkerConcurrency()).values, { ...defaults, analyze: 1, fetch: 2 });
+test("code defaults apply before the first save, and concurrent saves retain an ordered audit", async () => {
+  assert.deepEqual((await loadWorkerConcurrency()).values, defaults);
   assert.equal((await loadWorkerConcurrency()).configured, false);
   await Promise.all([
     updateWorkerConcurrency({ values: low, reason: "first operator" }, "concurrency-first"),

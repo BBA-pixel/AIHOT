@@ -145,7 +145,7 @@ function ConcurrencySettings({ settings }: { settings: AdminSettings["concurrenc
       </fieldset>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[12px] text-ink-4">
-          {settings.configured ? `后台设置更新于 ${bj(settings.updatedAt)}` : "当前使用部署默认值；保存后优先使用后台设置。"}
+          {settings.configured ? `后台设置更新于 ${bj(settings.updatedAt)}` : "当前使用系统默认值；保存后使用后台设置。"}
         </p>
         <Button className="min-h-11 sm:min-h-0" tone="primary" disabled={!changed || !allValid || busy} onClick={() => setOpen(true)}>保存并发设置</Button>
       </div>

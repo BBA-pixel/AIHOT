@@ -16,20 +16,13 @@ const count = z.number().int().min(1).max(MAX_WORKER_CONCURRENCY);
 const valuesSchema = z.object({ analyze: count, fetch: count, extract: count, digest: count }).strict();
 const updateSchema = z.object({ values: valuesSchema, reason: z.string().trim().min(1).max(500) }).strict();
 
-function deploymentDefaults(): WorkerConcurrency {
-  return valuesSchema.parse({
-    analyze: Number(process.env.ANALYZE_CONCURRENCY || 6),
-    fetch: Number(process.env.FETCH_CONCURRENCY || 8),
-    extract: Number(process.env.EXTRACT_CONCURRENCY || 4),
-    digest: Number(process.env.DIGEST_CONCURRENCY || 3),
-  });
-}
+const DEFAULT_CONCURRENCY: WorkerConcurrency = { analyze: 6, fetch: 8, extract: 4, digest: 3 };
 
 export async function loadWorkerConcurrency(db: Db = sql): Promise<BeforeJson<AdminWorkerConcurrency>> {
   const [row] = await db<{ value: WorkerConcurrency; updated_at: Date }[]>`
     SELECT value, updated_at FROM settings WHERE key = 'worker.concurrency'`;
   return {
-    values: row ? valuesSchema.parse(row.value) : deploymentDefaults(),
+    values: row ? valuesSchema.parse(row.value) : { ...DEFAULT_CONCURRENCY },
     configured: !!row,
     updatedAt: row?.updated_at ?? null,
   };
